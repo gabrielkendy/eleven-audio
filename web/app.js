@@ -1,15 +1,28 @@
 const ORDEM_PADRAO = ["gerar", "clonar", "comparar", "desenhar", "transcrever", "agente", "config"];
 
 function listaDeAreas() {
-  const bruto = window.AREAS || [];
-  const itens = Array.isArray(bruto)
-    ? bruto.map((area, indice) => ({ ...area, id: area.id || `area-${indice}` }))
-    : Object.entries(bruto).map(([id, area]) => ({ ...area, id }));
+  const bruto = window.AREAS || {};
+  const itens = [];
 
-  return itens.sort((a, b) => {
-    const posicao = (area) => area.ordem ?? ORDEM_PADRAO.indexOf(area.id) + 1 || 99;
-    return posicao(a) - posicao(b);
+  // Forma em lista: window.AREAS.push({ id, titulo, montar }).
+  if (Array.isArray(bruto)) {
+    bruto.forEach((area, indice) => {
+      if (area && typeof area === "object") itens.push({ ...area, id: area.id || `area-${indice}` });
+    });
+  }
+
+  // Forma em objeto: window.AREAS.gerar = { titulo, html, montar } (e tambem cobre a lista acima).
+  Object.entries(bruto).forEach(([chave, area]) => {
+    if (/^\d+$/.test(chave) || !area || typeof area !== "object") return;
+    itens.push({ ...area, id: area.id || chave });
   });
+
+  const posicao = (area) => {
+    const ordem = area.ordem ?? ORDEM_PADRAO.indexOf(area.id) + 1;
+    return ordem || 99;
+  };
+
+  return itens.sort((a, b) => posicao(a) - posicao(b));
 }
 
 function montarAreas() {

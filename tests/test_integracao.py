@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from app.config import carregar_config
 from app.servidor import criar_app
@@ -73,3 +77,24 @@ def test_app_js_monta_as_duas_formas_de_registro_e_respeita_a_ordem() -> None:
     assert "Object.entries" in js, "app.js precisa aceitar a forma em objeto"
     for area in AREAS:
         assert f'"{area}"' in js, f"app.js nao conhece a area {area}"
+
+
+def test_todo_javascript_da_tela_tem_sintaxe_valida() -> None:
+    """Um erro de sintaxe em qualquer area derruba a tela inteira em silencio. Este teste pega isso."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node nao disponivel neste computador")
+
+    arquivos = sorted(WEB.glob("*.js"))
+    assert arquivos, "nenhum javascript encontrado em web/"
+
+    quebrados = {}
+    for arquivo in arquivos:
+        resultado = subprocess.run(
+            [node, "--check", str(arquivo)], capture_output=True, text=True, errors="replace", check=False
+        )
+        if resultado.returncode != 0:
+            ultima = resultado.stderr.strip().splitlines()[-1] if resultado.stderr.strip() else "erro sem mensagem"
+            quebrados[arquivo.name] = ultima
+
+    assert not quebrados, f"javascript com erro de sintaxe: {quebrados}"
