@@ -111,3 +111,15 @@ def test_todo_javascript_da_tela_tem_sintaxe_valida() -> None:
             quebrados[arquivo.name] = ultima
 
     assert not quebrados, f"javascript com erro de sintaxe: {quebrados}"
+
+
+def test_app_js_nao_esconde_secoes_internas_das_areas() -> None:
+    """O liga/desliga de area so pode mexer nos paineis de primeiro nivel.
+
+    Regressao real: querySelectorAll("section") escondia as colunas internas de cada area
+    (a tela de clonar aparecia com 68 px e sem conteudo).
+    """
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+
+    assert ':scope > section' in js
+    assert 'querySelectorAll("section")' not in js

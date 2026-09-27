@@ -87,7 +87,9 @@ function montarAreas() {
   const mostrar = (id) => {
     const area = areas.find((item) => item.id === id);
     navegacao.querySelectorAll("button").forEach((item) => item.classList.toggle("ativo", item.dataset.alvo === id));
-    destino.querySelectorAll("section").forEach((painel) => {
+    // Só os paineis de primeiro nivel entram no liga/desliga. As secoes internas de cada
+    // area (colunas, blocos, comparacao) tem o proprio hidden e nao podem ser mexidas aqui.
+    destino.querySelectorAll(":scope > section").forEach((painel) => {
       painel.hidden = painel.id !== id;
     });
     if (titulo && area) titulo.textContent = area.titulo || area.id;
