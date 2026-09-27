@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 protocolo_seguranca.py · Protocolo de Seguranca Avancado do Estudio de Voz Local
 
@@ -27,9 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
-import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -44,6 +41,9 @@ OK, FALHA, NAO_RODADO = "OK", "FALHA", "NAO_RODADO"
 ARQUIVOS_IGNORADOS = {
     ".git", "__pycache__", "node_modules", ".venv", "venv", "dados", "saidas",
     ".next", "dist", "build", ".mypy_cache", ".pytest_cache",
+    # Laboratorio isolado: motores em avaliacao, com venv e scripts proprios.
+    # O gate mede o app, nao o que esta sendo testado fora dele.
+    "experimentos",
 }
 EXTENSOES_CODIGO = {".py", ".js", ".ts", ".tsx", ".jsx", ".json", ".yaml", ".yml",
                     ".toml", ".cfg", ".ini", ".sh", ".ps1", ".mjs", ".cjs"}
@@ -143,6 +143,9 @@ def p3_sem_chamada_externa(raiz: Path) -> Achado:
     host_local = r"(127\.0\.0\.1|localhost|::1)"
     occ = []
     for rel, numero, linha in varrer_codigo(raiz, {".py", ".js", ".ts", ".tsx", ".jsx"}):
+        # Desligar rastreamento e o oposto de rastrear: nao pode contar como falha.
+        if re.search(r"(?i)disable[_-]?telemetry|telemetry[_-]?disabled|HF_HUB_OFFLINE", linha):
+            continue
         if re.search(r"(?i)telemetry|analytics|sentry|posthog|mixpanel|segment\.|datadog", linha):
             occ.append(f"{rel}:{numero}")
             continue
@@ -207,9 +210,9 @@ def p7_log_limpo(raiz: Path) -> Achado:
     """Log registra evento, nao conteudo sensivel."""
     occ = []
     for rel, numero, linha in varrer_codigo(raiz, {".py", ".js", ".ts"}):
-        if re.search(r"(?i)(logger|log|logging)\.(info|debug|warning|error)", linha):
-            if re.search(r"texto_entrada|texto|base64|referencia|clipe", linha):
-                occ.append(f"{rel}:{numero}")
+        if re.search(r"(?i)(logger|log|logging)\.(info|debug|warning|error)", linha) and \
+                re.search(r"texto_entrada|texto|base64|referencia|clipe", linha):
+            occ.append(f"{rel}:{numero}")
         if len(occ) >= 6:
             break
     if occ:
@@ -322,7 +325,9 @@ def rodar(raiz: Path, json_saida: Path | None = None) -> int:
     for funcao in INVARIANTES:
         try:
             resultados.append(funcao(raiz))
-        except Exception as erro:                       # nunca deixa o gate cair calado
+        # Amplo de proposito: uma invariante que estoura nao pode derrubar o gate
+        # em silencio. Vira NAO_RODADO e aparece no relatorio.
+        except Exception as erro:  # noqa: BLE001
             resultados.append(Achado("??", True, NAO_RODADO, f"erro ao verificar: {erro}"))
 
     print()

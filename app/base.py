@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import io
+import wave
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -62,10 +64,32 @@ def montar_corpo(
     }
     if perfil_id:
         corpo["profile_id"] = perfil_id
+    corpo.update(ajustes or {})
+    # O argumento explícito é a fonte de verdade; zero também é uma semente.
     if semente is not None:
         corpo["seed"] = str(semente)
-    corpo.update(ajustes or {})
     return corpo
+
+
+def validar_wav(dados: bytes) -> None:
+    """Recusa respostas de sucesso sem WAV PCM completo, antes de persistir."""
+    try:
+        if (
+            len(dados) < 12
+            or dados[:4] != b"RIFF"
+            or dados[8:12] != b"WAVE"
+            or int.from_bytes(dados[4:8], "little") + 8 != len(dados)
+        ):
+            raise ValueError("cabecalho ou tamanho RIFF invalido")
+        with wave.open(io.BytesIO(dados), "rb") as leitor:
+            quadros = leitor.getnframes()
+            esperado = quadros * leitor.getnchannels() * leitor.getsampwidth()
+            if quadros <= 0 or leitor.getframerate() <= 0:
+                raise ValueError("audio vazio ou taxa invalida")
+            if len(leitor.readframes(quadros)) != esperado:
+                raise ValueError("quadros truncados")
+    except (wave.Error, EOFError, ValueError, TypeError, OSError) as erro:
+        raise ErroBase("a base nao devolveu um WAV valido e completo") from erro
 
 
 def gerar_audio(
@@ -92,6 +116,7 @@ def gerar_audio(
         with httpx.Client(timeout=config.timeout_s) as cliente:
             resposta = cliente.post(f"{config.base_url}/generate", data=corpo)
             resposta.raise_for_status()
+            validar_wav(resposta.content)
             return resposta.content
     except httpx.HTTPStatusError as erro:
         motivo = erro.response.text.strip()

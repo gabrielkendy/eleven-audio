@@ -2,7 +2,7 @@ window.AREAS = window.AREAS || [];
 
 window.AREAS.push({
   id: "desenhar",
-  titulo: "DESENHAR",
+  titulo: "Desenhar voz",
   montar(raiz) {
     const exemplos = {
       Narrador: "Narrador adulto, grave, sereno e acolhedor, com ritmo pausado.",
@@ -39,10 +39,8 @@ window.AREAS.push({
       <section data-resultado hidden>
         <h3 data-resultado-titulo>Perfil criado</h3>
         <div class="player">
-          <button type="button" data-tocar aria-label="Tocar ou pausar">▶</button>
-          <div class="onda" aria-hidden="true"></div>
+          <div class="onda"><audio data-audio controls preload="metadata"></audio></div>
           <span data-tempo>0,0 s</span>
-          <audio data-audio preload="metadata"></audio>
         </div>
       </section>
       <section aria-labelledby="desenhos-titulo">
@@ -57,11 +55,6 @@ window.AREAS.push({
     const audio = raiz.querySelector("[data-audio]");
     const lista = raiz.querySelector("[data-lista]");
     const botao = form.querySelector("button[type=submit]");
-
-    raiz.querySelector(".onda").innerHTML = Array.from(
-      { length: 28 },
-      (_, i) => `<i style="height:${20 + ((i * 17) % 65)}%"></i>`,
-    ).join("");
 
     async function ler(resposta) {
       const corpo = await resposta.json();
@@ -100,13 +93,6 @@ window.AREAS.push({
       evento.preventDefault();
       document.querySelector('[data-alvo="config"]')?.click();
     });
-    raiz.querySelector("[data-tocar]").addEventListener("click", () => {
-      if (audio.paused) audio.play();
-      else audio.pause();
-    });
-    audio.addEventListener("play", () => { raiz.querySelector("[data-tocar]").textContent = "❚❚"; });
-    audio.addEventListener("pause", () => { raiz.querySelector("[data-tocar]").textContent = "▶"; });
-
     form.addEventListener("submit", async (evento) => {
       evento.preventDefault();
       botao.disabled = true;

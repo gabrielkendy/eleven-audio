@@ -1,0 +1,103 @@
+{
+  "texto": "Hoje eu vou mostrar como transformar uma ideia em um projeto de verdade. Sem complicar, sem pular etapas. Primeiro a gente testa, depois compara e só então escolhe o que funciona melhor.",
+  "perfil_base": "165a614c",
+  "referencia": "Gabriel original 12.9s, consentimento registrado",
+  "seed": 2026,
+  "resultados": [
+    {
+      "caso": "omni_anterior_broadcast",
+      "arquivo": "C:\\caminho\\para\\eleven-audio\\experimentos\\qualidade-v2\\audios\\omni_anterior_broadcast.wav",
+      "segundos_geracao": 7.054101800022181,
+      "duracao_audio": 14.8,
+      "taxa": 24000,
+      "rtf": 0.4766285000014987,
+      "pedido": {
+        "text": "Hoje eu vou mostrar como transformar uma ideia em um projeto de verdade. Sem complicar, sem pular etapas. Primeiro a gente testa, depois compara e só então escolhe o que funciona melhor.",
+        "engine": "omnivoice",
+        "profile_id": "165a614c",
+        "language": "pt",
+        "speed": 1,
+        "seed": 2026,
+        "stream": "false",
+        "effect_preset": "broadcast",
+        "num_step": 32
+      },
+      "transcricao": "Hoje eu vou mostrar como transformar uma ideia em um projeto de verdade, sem complicar, sem pular etapas. Primeiro a gente testa, depois compara e só então escolhe o que funciona melhor.",
+      "motor_asr": "pytorch-whisper",
+      "wer_normalizado": 0.0
+    },
+    {
+      "caso": "omni_natural_32",
+      "arquivo": "C:\\caminho\\para\\eleven-audio\\experimentos\\qualidade-v2\\audios\\omni_natural_32.wav",
+      "segundos_geracao": 2.2228597999783233,
+      "duracao_audio": 14.8,
+      "taxa": 24000,
+      "rtf": 0.15019322972826507,
+      "pedido": {
+        "text": "Hoje eu vou mostrar como transformar uma ideia em um projeto de verdade. Sem complicar, sem pular etapas. Primeiro a gente testa, depois compara e só então escolhe o que funciona melhor.",
+        "engine": "omnivoice",
+        "profile_id": "165a614c",
+        "language": "pt",
+        "speed": 1,
+        "seed": 2026,
+        "stream": "false",
+        "effect_preset": "raw",
+        "num_step": 32,
+        "denoise": "false",
+        "postprocess_output": "false"
+      },
+      "transcricao": "Hoje eu vou mostrar como transformar uma ideia em um projeto de verdade, sem complicar, sem pular etapas. Primeiro a gente testa, depois compara e só então escolhe o que funciona melhor.",
+      "motor_asr": "pytorch-whisper",
+      "wer_normalizado": 0.0
+    },
+    {
+      "caso": "omni_natural_64",
+      "arquivo": "C:\\caminho\\para\\eleven-audio\\experimentos\\qualidade-v2\\audios\\omni_natural_64.wav",
+      "segundos_geracao": 3.610503400035668,
+      "duracao_audio": 14.8,
+      "taxa": 24000,
+      "rtf": 0.24395293243484242,
+      "pedido": {
+        "text": "Hoje eu vou mostrar como transformar uma ideia em um projeto de verdade. Sem complicar, sem pular etapas. Primeiro a gente testa, depois compara e só então escolhe o que funciona melhor.",
+        "engine": "omnivoice",
+        "profile_id": "165a614c",
+        "language": "pt",
+        "speed": 1,
+        "seed": 2026,
+        "stream": "false",
+        "effect_preset": "raw",
+        "num_step": 64,
+        "denoise": "false",
+        "postprocess_output": "false",
+        "position_temperature": 3.0
+      },
+      "transcricao": "Hoje eu vou mostrar como transformar uma ideia em um projeto de verdade, sem complicar, sem pular etapas. Primeiro a gente testa, depois compara e só então escolhe o que funciona melhor.",
+      "motor_asr": "pytorch-whisper",
+      "wer_normalizado": 0.0
+    },
+    {
+      "caso": "voxcpm_natural",
+      "arquivo": "C:\\caminho\\para\\eleven-audio\\experimentos\\qualidade-v2\\audios\\voxcpm_natural.wav",
+      "segundos_geracao": 49.67191229999298,
+      "duracao_audio": 13.76,
+      "taxa": 48000,
+      "rtf": 3.609877347383211,
+      "pedido": {
+        "text": "Hoje eu vou mostrar como transformar uma ideia em um projeto de verdade. Sem complicar, sem pular etapas. Primeiro a gente testa, depois compara e só então escolhe o que funciona melhor.",
+        "engine": "voxcpm2",
+        "profile_id": "165a614c",
+        "language": "pt",
+        "speed": 1,
+        "seed": 2026,
+        "stream": "false",
+        "effect_preset": "raw",
+        "denoise": "false",
+        "postprocess_output": "false"
+      },
+      "transcricao": "Hoje eu vou mostrar como transformar uma ideia em um projeto de verdade, sem complicar, sem pular etapas. Primeiro a gente testa, depois compara e só então escolhe o que funciona melhor.",
+      "motor_asr": "pytorch-whisper",
+      "wer_normalizado": 0.0
+    }
+  ],
+  "limite": "Não mede nem afirma equivalência perceptiva ao ElevenLabs."
+}

@@ -27,33 +27,31 @@ def sintetizar(
         raise ValueError("O texto do teste nao pode estar vazio")
 
     inicio = time.perf_counter()
-    arquivo = saidas.pasta_do_dia(pasta_saida) / saidas.nome_arquivo(
-        motor, perfil_id
-    )
+    arquivo = saidas.pasta_do_dia(pasta_saida) / saidas.nome_arquivo(motor, perfil_id)
 
     if motor != "mock":
         if config is None:
             raise ValueError("configuracao obrigatoria para motor real")
-        saidas.gravar_bytes(
-            arquivo,
-            base.gerar_audio(
-                config,
-                texto=texto,
-                motor=motor,
-                perfil_id=perfil_id,
-                idioma=idioma,
-                velocidade=velocidade,
-                semente=semente,
-                ajustes=ajustes,
-            ),
+        audio = base.gerar_audio(
+            config,
+            texto=texto,
+            motor=motor,
+            perfil_id=perfil_id,
+            idioma=idioma,
+            velocidade=velocidade,
+            semente=semente,
+            ajustes=ajustes,
         )
+        base.validar_wav(audio)
+        saidas.gravar_bytes(arquivo, audio)
         medicao = saidas.medir(arquivo)
         return {
             "arquivo": str(arquivo),
             "duracao_audio_s": medicao["duracao_audio_s"],
             "duracao_geracao_s": round(time.perf_counter() - inicio, 6),
             "motor": motor,
-            "dispositivo": "cuda",
+            # A resposta em bytes não comprova o dispositivo da inferência.
+            "dispositivo": "nao_informado",
             "tamanho_bytes": medicao["tamanho_bytes"],
         }
 

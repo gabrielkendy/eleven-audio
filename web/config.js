@@ -2,9 +2,9 @@ window.AREAS = window.AREAS || [];
 
 window.AREAS.push({
   id: "config",
-  titulo: "CONFIGURACAO",
+  titulo: "Configuração",
   async montar(raiz) {
-    const licencas = [
+    const LICENCAS = [
       ["Estudio de Voz Local", "licenca a definir"],
       ["VoiceStudio", "AGPL-3.0"],
       ["OmniVoice", "licenca propria do projeto"],
@@ -12,7 +12,6 @@ window.AREAS.push({
       ["IndexTTS 2.5", "licenca propria do projeto"],
       ["Faster-Whisper", "licenca propria do projeto"],
       ["WhisperX", "licenca propria do projeto"],
-      ["mock", "mesma licenca do nosso app"],
     ];
 
     async function ler(url) {
@@ -23,16 +22,16 @@ window.AREAS.push({
     raiz.classList.add("area-config");
     raiz.innerHTML = `
       <div class="config-grade" aria-live="polite"></div>
-      <button class="config-abrir" type="button">ABRIR PASTA DE SAIDAS</button>
-      <p class="config-aviso">O botao avisa se o endpoint de abrir pasta ainda nao existir.</p>
+      <button class="config-abrir" type="button">Abrir pasta de saídas</button>
+      <p class="config-aviso">O aplicativo avisa se não conseguir abrir a pasta.</p>
       <section class="config-licencas">
-        <h3>LISTA DE LICENCAS</h3>
+        <h3>Licenças dos motores</h3>
         <div class="config-lista-licencas"></div>
-        <p>Leia a licenca de cada motor antes de usar o audio comercialmente.</p>
+        <p>Leia a licença de cada motor antes de usar o áudio comercialmente.</p>
       </section>`;
 
     const lista = raiz.querySelector(".config-lista-licencas");
-    for (const [nome, tipo] of licencas) {
+    for (const [nome, tipo] of LICENCAS) {
       const linha = document.createElement("p");
       const rotulo = document.createElement("strong");
       rotulo.textContent = nome;

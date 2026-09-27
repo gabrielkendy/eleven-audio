@@ -1,0 +1,11 @@
+{
+  "text": "Hoje eu vou mostrar como transformar uma ideia em um projeto de verdade. Sem complicar, sem pular etapas. Primeiro a gente testa, depois compara e só então escolhe o que funciona melhor.",
+  "locale": "pt-BR",
+  "reference_audio": "C:/caminho/para/eleven-audio/saidas/audio/qualidade-v2/original.wav",
+  "output": "C:/caminho/para/eleven-audio/experimentos/chatterbox-ptbr/output/chatterbox-ptbr-natural.wav",
+  "seed": 2026,
+  "cfg_weight": 0.3,
+  "exaggeration": 0.35,
+  "temperature": 0.7,
+  "device": "auto"
+}

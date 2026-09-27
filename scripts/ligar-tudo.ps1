@@ -1,9 +1,15 @@
 param()
 
 $ErrorActionPreference = 'Stop'
-$VoiceStudioPadrao = 'C:\Users\Gabriel\Downloads\YOUTUBE KENDY\02-EM-PRODUCAO\SÉRIE · ENGENHARIA REVERSA DE PRODUTO\2-MATERIAIS-DA-SOLUCAO\4-BASE-VOICESTUDIO'
-$PythonProjetoPadrao = 'C:\Users\Gabriel\.venvs\eleven-audio\Scripts\python.exe'
+# Caminhos genericos de exemplo. Ajuste na sua maquina com scripts\local.ps1
+# (ignorado pelo Git) ou pelas variaveis VOICESTUDIO_DIR e ESTUDIO_PYTHON.
+$VoiceStudioPadrao = 'C:\caminho\para\4-BASE-VOICESTUDIO'
+$PythonProjetoPadrao = 'C:\caminho\para\o-venv-do-projeto\Scripts\python.exe'
 $TempoLimiteSegundos = 180
+
+# Ajustes locais da sua maquina: nao entram no repositorio.
+$AjustesLocais = Join-Path $PSScriptRoot 'local.ps1'
+if (Test-Path -LiteralPath $AjustesLocais) { . $AjustesLocais }
 
 $RaizProjeto = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $PastaLogs = Join-Path $RaizProjeto 'dados\logs'

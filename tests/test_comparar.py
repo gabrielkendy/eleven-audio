@@ -18,7 +18,7 @@ def _config(tmp_path: Path):
         {
             "ESTUDIO_DADOS": "dados",
             "ESTUDIO_SAIDAS": "saidas/audio",
-            "ESTUDIO_BASE_URL": "http://base.test",
+            "ESTUDIO_BASE_URL": "http://127.0.0.1:3900",
         },
         raiz=tmp_path,
     )

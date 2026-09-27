@@ -10,8 +10,17 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app import ajustes as ajustes_de_qualidade
 from app import base, cofre, marcas, saidas
+from app.chatterbox_local import disponivel as chatterbox_disponivel
+from app.chatterbox_local import sintetizar_chatterbox
 from app.config import Configuracao
 from app.motor import sintetizar
+
+MOTORES_BLOQUEADOS = {
+    # A base anuncia este sidecar como disponível, mas a execução real falha
+    # porque o ambiente isolado não possui o pacote omnivoice. Não alteramos a
+    # base: só impedimos que o adaptador direcione o usuário a uma rota quebrada.
+    "omnivoice-subprocess": "Ambiente isolado incompleto. Use OmniVoice direto até este motor ser reparado.",
+}
 
 
 def _abrir_cofre(config: Configuracao) -> cofre.Cofre:
@@ -31,6 +40,11 @@ def _motores(config: Configuracao, base_no_ar: bool) -> list[dict[str, Any]]:
             "dispositivo": "cpu",
         }
     ]
+    if chatterbox_disponivel():
+        motores.append({"id": "chatterbox-ptbr", "nome": "Chatterbox V3 · Português do Brasil",
+                        "disponivel": True, "motivo": None, "idiomas": ["pt"],
+                        "clonagem": True, "limite_referencia_s": 30,
+                        "dispositivo": "auto · CUDA ou CPU"})
     if not base_no_ar:
         for identificador in ("omnivoice", "voxcpm2"):
             motores.append(
@@ -63,12 +77,14 @@ def _motores(config: Configuracao, base_no_ar: bool) -> list[dict[str, Any]]:
         )
         return motores
     for item in catalogo.get("backends", []):
+        identificador = str(item["id"])
+        bloqueio = MOTORES_BLOQUEADOS.get(identificador)
         motores.append(
             {
-                "id": item["id"],
-                "nome": item.get("display_name", item["id"]),
-                "disponivel": bool(item.get("available")),
-                "motivo": item.get("reason") or item.get("last_error"),
+                "id": identificador,
+                "nome": item.get("display_name", identificador),
+                "disponivel": bool(item.get("available")) and not bloqueio,
+                "motivo": bloqueio or item.get("reason") or item.get("last_error"),
                 "idiomas": item.get("supported_language_names") or [],
                 "clonagem": bool(item.get("supports_cloning")),
                 "limite_referencia_s": item.get("max_ref_seconds"),
@@ -93,7 +109,7 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
             raise HTTPException(422, "motor desconhecido")
         if not encontrado["disponivel"]:
             raise HTTPException(409, f"motor indisponivel: {encontrado['motivo']}")
-        if motor != "mock":
+        if motor not in {"mock", "chatterbox-ptbr"}:
             try:
                 base.selecionar_motor(config, motor)
             except base.ErroBase as erro:
@@ -140,7 +156,19 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
         if not encontrado["disponivel"]:
             raise HTTPException(409, f"motor indisponivel: {encontrado['motivo']}")
         try:
-            resultado = sintetizar(
+            if motor == "chatterbox-ptbr":
+                if not perfil_id:
+                    raise HTTPException(422, "Selecione uma voz clonada para o Chatterbox PT-BR.")
+                if velocidade != 1 or ajustes_pedidos:
+                    raise HTTPException(422, "Chatterbox PT-BR usa seu preset natural e velocidade 1x.")
+                if str(corpo.get("idioma", "pt")) not in {"pt", "pt-BR"}:
+                    raise HTTPException(422, "Este modelo especializado aceita português do Brasil.")
+                semente = corpo.get("semente", 2026)
+                if type(semente) is not int or not 0 <= semente <= 2147483647:
+                    raise HTTPException(422, "Semente deve ser um inteiro de 0 a 2147483647.")
+                resultado = sintetizar_chatterbox(texto, config=config, perfil_id=str(perfil_id), semente=semente)
+            else:
+                resultado = sintetizar(
                 texto,
                 motor=motor,
                 pasta_saida=config.saidas,

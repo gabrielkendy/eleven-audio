@@ -2,7 +2,7 @@ window.AREAS = window.AREAS || [];
 
 window.AREAS.push({
   id: "transcrever",
-  titulo: "TRANSCREVER",
+  titulo: "Transcrever",
   montar(raiz) {
     raiz.innerHTML = `
       <form class="compositor" data-form-transcrever>

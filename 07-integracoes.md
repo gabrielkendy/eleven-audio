@@ -90,7 +90,7 @@ para um player ou para outro programa. Em `both`, volta tudo (e o embutido é se
 ```bash
 # recomendacao do nosso roteiro (na base, antes de subir)
 export OMNIVOICE_MCP_OUTPUT_MODE=files
-export OMNIVOICE_MCP_BASE_PATH="C:\Users\Gabriel\Downloads\YOUTUBE KENDY\02-EM-PRODUCAO\SÉRIE · ENGENHARIA REVERSA DE PRODUTO\estudio\saidas\audio"
+export OMNIVOICE_MCP_BASE_PATH="C:\caminho\para\o\estudio\saidas\audio"
 ```
 
 Ajuste fino: o caminho base precisa ser visível para a base e para o agente. Se os dois rodam no

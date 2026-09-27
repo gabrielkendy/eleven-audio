@@ -81,7 +81,7 @@ def criar_perfil(
             raise ErroClonagem(f"Nao foi possivel medir o clipe: {erro}") from erro
         if not 5 <= duracao <= 30:
             raise ErroClonagem(
-                f"O clipe deve ter de 5 a 30 segundos (mais material de voz, mais fiel o clone). "
+                f"O clipe deve ter de 5 a 30 segundos, com uma só voz e sem música. "
                 f"Duracao medida: {duracao:.2f} s.",
                 400,
             )

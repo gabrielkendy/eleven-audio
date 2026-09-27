@@ -44,6 +44,41 @@ __pycache__/
 *.onnx
 *.gguf
 
+# Experimentos locais: pesos, saídas e logs nunca vão para o repositório
+/experimentos/**/model-cache/
+/experimentos/**/output/
+/experimentos/**/.venv/
+/experimentos/**/*.log
+/experimentos/**/READY.json
+/experimentos/**/REPORT.json
+hf-cache/
+.huggingface/
+.uv-cache/
+.uv/
+
+# Áudio gerado em qualquer lugar do projeto
+*.wav
+*.ogg
+*.mp3
+!web/recursos/*.wav
+
+# Rascunhos e artefatos de verificação local
+.hermes/
+/scripts/local.ps1
+/scripts/local.bat
+c.json
+d.json
+g.json
+m.json
+q.json
+clone-*.json
+chatterbox-integrado.json
+geracao-real.json
+confirmacao-*.txt
+revisao-*.txt
+*.orig
+*.rej
+
 # Sistema e editor
 .DS_Store
 Thumbs.db

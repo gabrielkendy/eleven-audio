@@ -4,30 +4,31 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Estúdio de Voz Local</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600&display=swap">
-    <link rel="stylesheet" href="/web/estilo.css">
-    <link rel="stylesheet" href="/web/estilo-config.css">
+    <link rel="stylesheet" href="/web/estilo-v2.css">
   </head>
   <body>
     <div class="estudio">
       <aside class="lateral">
         <div class="marca">
-          <span class="marca-simbolo">EA</span>
-          <span class="marca-texto"><strong>Estúdio de Voz</strong><small>local · sem conta</small></span>
+          <span class="marca-simbolo" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 14v-4m4 8V6m4 15V3m4 15V6m4 8v-4"/></svg>
+          </span>
+          <span class="marca-texto"><strong>Estúdio de Voz</strong><small>Processamento local</small></span>
         </div>
         <nav id="navegacao" aria-label="Áreas do estúdio" class="menu"></nav>
         <div class="lateral-rodape">
-          <p class="selo">100% na sua máquina</p>
-          <p class="lateral-nota">Sem login, sem nuvem, sem cobrança por minuto.</p>
+          <p><a href="/web/audicao.html">Comparar amostras de voz ↗</a></p>
+          <p class="selo">Ambiente local</p>
+          <p class="lateral-nota">Seus arquivos ficam nesta máquina.</p>
         </div>
       </aside>
 
       <main class="conteudo">
         <header class="topo">
-          <button id="sanfona" class="sanfona" type="button" aria-label="Abrir menu" aria-controls="navegacao" aria-expanded="false">☰</button>
+          <button id="sanfona" class="sanfona" type="button" aria-label="Abrir menu" aria-controls="navegacao" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
           <div class="topo-titulo">
-            <p class="rotulo">ESTÚDIO PRIVADO</p>
             <h1 id="titulo-area">Gerar áudio</h1>
           </div>
           <div class="topo-status">

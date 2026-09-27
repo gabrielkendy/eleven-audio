@@ -31,7 +31,7 @@ def _wav(caminho: Path, segundos: float = 10) -> Path:
 
 def _config(tmp_path: Path):
     return carregar_config(
-        {"ESTUDIO_DADOS": "dados", "ESTUDIO_BASE_URL": "http://base.local"},
+        {"ESTUDIO_DADOS": "dados", "ESTUDIO_BASE_URL": "http://127.0.0.1:3900"},
         raiz=tmp_path,
     )
 
@@ -129,6 +129,77 @@ def test_rejeita_clipe_fora_de_cinco_a_quinze_segundos(tmp_path: Path) -> None:
     assert resposta.status_code == 400
     assert "5 a 30 segundos" in resposta.json()["detail"]
     assert listar_perfis(config) == []
+
+
+def test_router_aceita_campo_acentuado_sem_charset_declarado(tmp_path: Path) -> None:
+    """Regressao: curl no console do Windows envia acentos em cp1252.
+
+    Antes, um campo sem charset declarado derrubava a requisicao com
+    UnicodeDecodeError (erro 500). O texto precisa chegar intacto.
+    """
+    config = _config(tmp_path)
+    app = FastAPI()
+    app.state.configuracao_clonar = config
+    app.include_router(router)
+
+    transcricao = "A gente vai desbloquear as restricoes que vem de fabrica."
+    acentuada = transcricao.replace("restricoes", "restri\u00e7\u00f5es")
+    fronteira = "----verificacao-cp1252"
+    LINHA = chr(13) + chr(10)
+    cabecalho = LINHA.join(
+        [
+            f"--{fronteira}",
+            'Content-Disposition: form-data; name="nome"',
+            "",
+            "Voz de verificacao",
+            f"--{fronteira}",
+            'Content-Disposition: form-data; name="origem_voz"',
+            "",
+            "propria",
+            f"--{fronteira}",
+            'Content-Disposition: form-data; name="aceite_consentimento"',
+            "",
+            "true",
+            f"--{fronteira}",
+            'Content-Disposition: form-data; name="transcricao"',
+            "",
+            acentuada,
+            f"--{fronteira}",
+            'Content-Disposition: form-data; name="arquivo_referencia"; filename="voz.wav"',
+            "Content-Type: audio/wav",
+            "",
+            "",
+        ]
+    )
+    corpo = (
+        cabecalho.encode("cp1252")
+        + _wav(tmp_path / "voz.wav").read_bytes()
+        + f"{LINHA}--{fronteira}--{LINHA}".encode()
+    )
+
+    capturado: dict[str, str] = {}
+
+    def base(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/profiles":
+            bruto = request.content.decode("utf-8", "replace")
+            capturado["texto_enviado"] = "restri\u00e7\u00f5es" in bruto
+            return httpx.Response(200, json={"id": "perfil-cp1252"})
+        return httpx.Response(200, json={"ok": True})
+
+    cliente = httpx.Client(transport=httpx.MockTransport(base), base_url=config.base_url)
+    app.state.cliente_clonar = cliente
+    try:
+        resposta = TestClient(app).post(
+            "/api/clonar",
+            content=corpo,
+            headers={"Content-Type": f"multipart/form-data; boundary={fronteira}"},
+        )
+    finally:
+        cliente.close()
+
+    assert resposta.status_code == 200, resposta.text
+    assert capturado["texto_enviado"] is True
+    assert listar_perfis(config)[0]["transcricao_referencia"] == acentuada
 
 
 def test_interface_contem_area_clonar_e_texto_literal() -> None:

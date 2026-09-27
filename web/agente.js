@@ -11,13 +11,13 @@
   window.AREAS = window.AREAS || [];
   window.AREAS.push({
     id: "agente",
-    titulo: "AGENTE",
+    titulo: "Agente",
     montar(raiz) {
       raiz.innerHTML = `
         <ol class="grade-cartoes" aria-label="Passos para ligar a voz">
-          <li><strong>1. Escolher cliente e voz</strong><span>Defina quem usará o perfil.</span></li>
-          <li><strong>2. Ligar</strong><span>Salve o vínculo na base local.</span></li>
-          <li><strong>3. Colar o comando no agente</strong><span>Use o formato aceito pelo seu agente.</span></li>
+          <li aria-label="1. Escolher cliente e voz"><strong>Escolher cliente e voz</strong><span>Defina quem usará o perfil.</span></li>
+          <li aria-label="2. Ligar"><strong>Ligar</strong><span>Salve o vínculo na base local.</span></li>
+          <li aria-label="3. Colar o comando no agente"><strong>Colar o comando no agente</strong><span>Use o formato aceito pelo seu agente.</span></li>
         </ol>
         <section class="compositor">
           <label class="campo-rotulo" for="agente-cliente">Cliente</label>

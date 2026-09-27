@@ -2,7 +2,7 @@ window.AREAS = window.AREAS || [];
 
 window.AREAS.push({
   id: "comparar",
-  titulo: "COMPARAR",
+  titulo: "Comparar motores",
   montar(raiz) {
     raiz.innerHTML = `
       <form class="compositor" data-form-comparar>
@@ -22,19 +22,15 @@ window.AREAS.push({
           <article>
             <h3 data-titulo-a>Motor A</h3>
             <div class="player">
-              <button type="button" data-tocar="a" aria-label="Tocar ou pausar o áudio A">▶</button>
-              <div class="onda" data-onda="a" aria-hidden="true"></div>
+              <div class="onda" data-onda="a"><audio data-audio="a" controls preload="metadata"></audio></div>
               <span data-tempo="a">0,0 s</span>
-              <audio data-audio="a" preload="metadata"></audio>
             </div>
           </article>
           <article>
             <h3 data-titulo-b>Motor B</h3>
             <div class="player">
-              <button type="button" data-tocar="b" aria-label="Tocar ou pausar o áudio B">▶</button>
-              <div class="onda" data-onda="b" aria-hidden="true"></div>
+              <div class="onda" data-onda="b"><audio data-audio="b" controls preload="metadata"></audio></div>
               <span data-tempo="b">0,0 s</span>
-              <audio data-audio="b" preload="metadata"></audio>
             </div>
           </article>
         </div>
@@ -46,13 +42,6 @@ window.AREAS.push({
     const estado = raiz.querySelector("[data-estado]");
     const botao = form.querySelector("button[type=submit]");
     let motores = [];
-
-    raiz.querySelectorAll(".onda").forEach((onda, indice) => {
-      onda.innerHTML = Array.from(
-        { length: 28 },
-        (_, i) => `<i style="height:${18 + (((i + indice * 5) * 19) % 72)}%"></i>`,
-      ).join("");
-    });
 
     async function ler(resposta) {
       const corpo = await resposta.json();
@@ -67,7 +56,7 @@ window.AREAS.push({
           motor.id,
         )));
       });
-      form.elements.motor_a.value = motores.find((motor) => motor.id === "mock")?.id || motores[0]?.id || "";
+      form.elements.motor_a.value = motores[0]?.id || "";
       form.elements.motor_b.value = motores.find((motor) => motor.id !== form.elements.motor_a.value)?.id || "";
       mostrarMotivos();
     }
@@ -87,7 +76,7 @@ window.AREAS.push({
           fetch("/api/motores").then(ler),
           fetch("/api/perfis").then(ler),
         ]);
-        motores = catalogo;
+        motores = catalogo.filter((motor) => motor.id !== "mock");
         preencherMotores();
         form.elements.perfil_id.replaceChildren(...perfis.map((perfil) => new Option(
           `${perfil.nome} · ${perfil.origem}`,
@@ -129,16 +118,6 @@ window.AREAS.push({
 
     form.elements.motor_a.addEventListener("change", mostrarMotivos);
     form.elements.motor_b.addEventListener("change", mostrarMotivos);
-    raiz.querySelectorAll("[data-tocar]").forEach((tocar) => {
-      const audio = raiz.querySelector(`[data-audio="${tocar.dataset.tocar}"]`);
-      tocar.addEventListener("click", () => {
-        if (audio.paused) audio.play();
-        else audio.pause();
-      });
-      audio.addEventListener("play", () => { tocar.textContent = "❚❚"; });
-      audio.addEventListener("pause", () => { tocar.textContent = "▶"; });
-    });
-
     form.addEventListener("submit", async (evento) => {
       evento.preventDefault();
       botao.disabled = true;

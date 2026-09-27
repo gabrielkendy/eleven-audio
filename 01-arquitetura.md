@@ -224,7 +224,7 @@ consumindo VRAM. O rodapé existe para mostrar isso antes de a pessoa culpar o a
 ## 7. Mapa de pastas do projeto
 
 ```text
-SÉRIE · ENGENHARIA REVERSA DE PRODUTO\
+PASTA-DE-TRABALHO\
 ├── 2-MATERIAIS-DA-SOLUCAO\
 │   ├── 3-AS-7-FASES-ENTREGUES\        (FASE-01 a FASE-07, este kit incluido)
 │   │   ├── FASE-07-BLUEPRINT\00-BLUEPRINT.md         (o blueprint)

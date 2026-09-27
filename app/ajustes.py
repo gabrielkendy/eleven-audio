@@ -6,13 +6,42 @@ Fonte dos nomes e dos padrões: `openapi.json` da própria base (lido em 27/09/2
 
 from __future__ import annotations
 
+import math
+from decimal import Decimal, InvalidOperation
 from typing import Any
+
+
+def _numero(nome: str, valor: Any, tipo: type) -> int | float:
+    rotulo = "semente" if nome == "seed" else ROTULO[nome]
+    try:
+        if isinstance(valor, bool):
+            raise TypeError
+        decimal = Decimal(str(valor))
+        if not decimal.is_finite():
+            raise ValueError
+        if tipo is int:
+            if decimal != decimal.to_integral_value():
+                raise ValueError
+            return int(decimal)
+        numero = float(decimal)
+        if not math.isfinite(numero):
+            raise ValueError
+        return numero
+    except (InvalidOperation, TypeError, ValueError, OverflowError) as erro:
+        sufixo = " inteiro" if tipo is int else ""
+        raise ValueError(f"{rotulo} deve ser um número{sufixo} finito") from erro
+
 
 # nome do campo -> (minimo, maximo, tipo, padrao da base, explicacao em portugues)
 NUMERICOS: dict[str, tuple[float, float, type, str]] = {
     "num_step": (4, 64, int, "16 (rápido) ou 32 (mais limpo)"),
     "guidance_scale": (0.5, 5.0, float, "2,0"),
-    "position_temperature": (0.0, 10.0, float, "5,0 (maior é mais expressivo e mais artefato)"),
+    "position_temperature": (
+        0.0,
+        10.0,
+        float,
+        "5,0 (maior é mais expressivo e mais artefato)",
+    ),
     "class_temperature": (0.0, 5.0, float, "0,0 (zero é guloso)"),
     "max_chunk_chars": (200, 2000, int, "800"),
     "crossfade_ms": (0, 500, int, "50"),
@@ -60,10 +89,7 @@ def normalizar(bruto: Any) -> dict[str, str]:
             continue
         if nome in NUMERICOS:
             minimo, maximo, tipo, _ = NUMERICOS[nome]
-            try:
-                numero = tipo(float(valor))
-            except (TypeError, ValueError) as erro:
-                raise ValueError(f"{ROTULO[nome]} deve ser um número") from erro
+            numero = _numero(nome, valor, tipo)
             if not minimo <= numero <= maximo:
                 raise ValueError(f"{ROTULO[nome]} deve estar entre {minimo} e {maximo}")
             saida[nome] = str(numero)
@@ -75,10 +101,7 @@ def normalizar(bruto: Any) -> dict[str, str]:
                 raise ValueError(f"efeito deve ser um destes: {', '.join(EFEITOS)}")
             saida[nome] = efeito
         elif nome == "seed":
-            try:
-                saida["seed"] = str(int(valor))
-            except (TypeError, ValueError) as erro:
-                raise ValueError("semente deve ser um número inteiro") from erro
+            saida["seed"] = str(_numero(nome, valor, int))
         else:
             raise ValueError(f"ajuste desconhecido: {nome}")
     return saida
@@ -93,7 +116,9 @@ def resumo(ajustes: dict[str, str], velocidade: float = 1.0) -> str:
         if nome == "effect_preset":
             partes.append(valor)
         elif nome in BOOLEANOS:
-            partes.append(f"{ROTULO[nome]} {'ligada' if valor == 'true' else 'desligada'}")
+            partes.append(
+                f"{ROTULO[nome]} {'ligada' if valor == 'true' else 'desligada'}"
+            )
         else:
             partes.append(f"{ROTULO.get(nome, nome)} {valor}")
     if velocidade != 1.0:

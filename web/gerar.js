@@ -6,11 +6,7 @@ window.AREAS.gerar = {
       <div class="rail">
         <div class="compositor">
           <div class="abas" role="tablist" aria-label="Áreas do estúdio">
-            <button class="aba ativa" type="button" data-nav="gerar">Speech</button>
-            <button class="aba" type="button" data-nav="clonar">Clonar</button>
-            <button class="aba" type="button" data-nav="desenhar">Desenhar</button>
-            <button class="aba" type="button" data-nav="transcrever">Transcrever</button>
-            <button class="aba" type="button" data-nav="agente">Agente</button>
+            <button class="aba ativa" type="button" data-nav="gerar">Compor</button>
             <button class="aba" type="button" data-acao="historico">Histórico</button>
           </div>
 
@@ -50,12 +46,12 @@ window.AREAS.gerar = {
           <div class="vazio" data-campo="vazio">Escreva um texto ou escolha um ponto de partida. Use Ctrl+Enter para gerar.</div>
           <div class="aviso" data-campo="aviso" role="alert" hidden></div>
           <div class="player" data-campo="player" hidden>
-            <button type="button" class="player-play" data-acao="play" aria-label="Tocar áudio">▶</button>
-            <div class="onda" data-campo="onda" aria-hidden="true"></div>
+            <div class="onda" data-campo="onda">
+              <audio data-campo="audio" controls></audio>
+            </div>
             <span data-campo="tempo-player">0:00</span>
             <a data-campo="baixar" download>Baixar WAV</a>
             <button type="button" data-acao="abrir-pasta">Abrir pasta</button>
-            <audio data-campo="audio"></audio>
           </div>
         </div>
 
@@ -63,6 +59,8 @@ window.AREAS.gerar = {
           <label><span class="campo-rotulo">Motor</span>
             <select data-campo="motor"><option>Carregando...</option></select>
           </label>
+          <small class="motor-resumo" data-campo="motor-resumo"></small>
+          <details><summary data-campo="catalogo-titulo">Outros motores</summary><div class="catalogo-motores" data-campo="catalogo"></div></details>
           <div>
             <label for="busca-voz-gerar" class="campo-rotulo">Voz</label>
             <input id="busca-voz-gerar" data-campo="busca-voz" type="search" placeholder="Buscar voz salva">
@@ -72,11 +70,23 @@ window.AREAS.gerar = {
             <input data-campo="velocidade" type="range" min="0.5" max="2" step="0.1" value="1">
             <small>Mais lento</small><small>Mais rápido</small>
           </label>
-          <label class="slider"><span class="campo-rotulo">Variação <output data-campo="variacao-valor">50%</output></span>
-            <input data-campo="variacao" type="range" min="0" max="100" value="50">
-            <small>Mais variável</small><small>Mais estável</small>
+          <label><span class="campo-rotulo">Acabamento</span>
+            <select data-campo="qualidade">
+              <option value="natural">Natural · sem efeito de rádio</option>
+              <option value="detalhado">Detalhado · OmniVoice 64 passos</option>
+              <option value="broadcast">Broadcast · voz processada</option>
+            </select>
+            <small>Mais passos não garantem maior semelhança.</small>
           </label>
-          <div><span class="campo-rotulo">Marcas aceitas</span><p data-campo="marcas">Carregando...</p></div>
+          <label><span class="campo-rotulo">Semente fixa</span>
+            <input data-campo="variacao" type="number" min="0" max="2147483647" step="1" value="2026">
+            <small>Repete a condição aleatória. Não controla estabilidade.</small>
+          </label>
+          <details><summary>Qualidade da referência</summary><p data-campo="diagnostico">Selecione uma voz clonada.</p></details>
+          <details>
+            <summary>Marcas aceitas</summary>
+            <p data-campo="marcas">Carregando...</p>
+          </details>
         </aside>
       </div>`;
   },
@@ -84,11 +94,14 @@ window.AREAS.gerar = {
     const campo = (nome) => area.querySelector(`[data-campo="${nome}"]`);
     const aviso = campo("aviso");
     const audio = campo("audio");
-    const previas = new Map();
+    const previaOriginal = new Audio();
+    let gerando = false;
     let motores = [];
     let perfis = [];
     let perfilSelecionado = null;
     let ultimaGeracao = null;
+    const nomesMotores = {omnivoice: "OmniVoice", "omnivoice-subprocess": "OmniVoice · isolado", voxcpm2: "VoxCPM2", kittentts: "KittenTTS · inglês", "chatterbox-ptbr": "Chatterbox V3 · PT-BR", cosyvoice: "CosyVoice 3", "mlx-audio": "MLX Audio · Mac", "moss-tts-nano": "MOSS Nano", "gpt-sovits": "GPT-SoVITS", "sherpa-onnx": "Sherpa ONNX", indextts2: "IndexTTS 2.5", "omnivoice-gguf": "OmniVoice GGUF", supertonic3: "Supertonic 3", "moss-tts-v15": "MOSS 1.5", "dots-tts": "Dots TTS", pockettts: "PocketTTS", "confucius4-tts": "Confucius4 TTS", audiocpp: "Audio.cpp"};
+    const nomeMotor = (motor) => nomesMotores[motor.id] || motor.nome.split(" (")[0];
 
     async function api(caminho, opcoes = {}) {
       const resposta = await fetch(`/api${caminho}`, {
@@ -115,9 +128,16 @@ window.AREAS.gerar = {
     function atualizarMotor() {
       const motor = motores.find((item) => item.id === campo("motor").value);
       if (!motor) return;
-      campo("motor-chip").textContent = `${motor.nome} `;
+      campo("motor-chip").textContent = nomeMotor(motor);
+      campo("motor-resumo").textContent = motor.id === "kittentts" ? "Somente inglês. Não clona sua voz." : motor.clonagem ? "Clonagem disponível. Selecione sua voz abaixo." : "Síntese de fala. Não oferece clonagem de voz.";
       campo("motor-dispositivo").textContent = motor.dispositivo || "sem dispositivo";
       campo("motor-estado").textContent = motor.disponivel ? "instalado" : "indisponível";
+      const detalhado = campo("qualidade").querySelector('[value="detalhado"]');
+      detalhado.disabled = !motor.id.startsWith("omnivoice");
+      if (detalhado.disabled && campo("qualidade").value === "detalhado") campo("qualidade").value = "natural";
+      campo("velocidade").disabled = motor.id === "chatterbox-ptbr";
+      if (campo("velocidade").disabled) { campo("velocidade").value = "1"; campo("velocidade-valor").textContent = "1,0x"; }
+      campo("qualidade").disabled = motor.id === "chatterbox-ptbr";
     }
 
     async function atualizarMarcas() {
@@ -131,10 +151,26 @@ window.AREAS.gerar = {
 
     function atualizarVoz() {
       campo("voz-chip").textContent = `${perfilSelecionado?.nome || "Voz padrão"} `;
-      campo("voz-origem").textContent = perfilSelecionado?.origem || "do motor";
+      const origem = perfilSelecionado?.origem;
+      campo("voz-origem").textContent = origem === "clonado" ? "Voz clonada" : origem === "desenhado" ? "Voz por descrição" : origem ? "Voz salva" : "do motor";
       area.querySelectorAll("[data-perfil-id]").forEach((item) => {
         item.classList.toggle("ativo", item.dataset.perfilId === perfilSelecionado?.id);
+        const botao = item.querySelector("button");
+        botao.textContent = item.dataset.perfilId === perfilSelecionado?.id ? "Selecionada ✓" : "Selecionar";
+        botao.setAttribute("aria-pressed", String(item.dataset.perfilId === perfilSelecionado?.id));
       });
+      try { if (perfilSelecionado) localStorage.setItem("estudio:perfil", perfilSelecionado.id); } catch (_) {}
+    }
+
+    async function diagnosticoVoz() {
+      const id = perfilSelecionado?.id;
+      campo("diagnostico").textContent = "Selecione uma voz clonada.";
+      if (!id || perfilSelecionado.origem !== "clonado") return;
+      try {
+        const info = await api(`/perfis/${encodeURIComponent(id)}/qualidade`);
+        if (perfilSelecionado?.id !== id) return;
+        campo("diagnostico").textContent = `${info.duracao_s} s · pico ${info.pico_dbfs} dBFS · nível médio ${info.rms_dbfs} dBFS. ${info.avisos.join(" ") || "Sem alertas básicos de nível."} ${info.limite}`;
+      } catch (erro) { if (perfilSelecionado?.id === id) campo("diagnostico").textContent = erro.message; }
     }
 
     function renderizarVozes() {
@@ -156,22 +192,26 @@ window.AREAS.gerar = {
         const nome = document.createElement("strong");
         nome.textContent = perfil.nome;
         const origem = document.createElement("small");
-        origem.textContent = perfil.origem || "origem não informada";
+        origem.textContent = perfil.origem === "clonado" ? "Voz clonada" : perfil.origem === "desenhado" ? "Voz por descrição" : "Voz salva";
         const usar = document.createElement("button");
         usar.type = "button";
         usar.textContent = "Usar esta voz";
         usar.addEventListener("click", () => {
           perfilSelecionado = perfil;
           atualizarVoz();
+          diagnosticoVoz();
         });
         const tocar = document.createElement("button");
         tocar.type = "button";
-        tocar.textContent = "Tocar prévia";
-        tocar.addEventListener("click", () => {
-          const previa = previas.get(perfil.id);
+        tocar.textContent = "Ouvir original";
+        tocar.disabled = perfil.origem !== "clonado" || !perfil.audio_url;
+        if (tocar.disabled) tocar.title = "Prévia original ainda não disponível neste servidor.";
+        tocar.addEventListener("click", async () => {
+          const previa = perfil.audio_url;
           if (!previa) return mostrarAviso("Esta voz ainda não tem prévia nesta sessão.");
-          audio.src = previa;
-          audio.play();
+          audio.pause();
+          previaOriginal.src = previa;
+          try { await previaOriginal.play(); } catch (_) { mostrarAviso("Não foi possível ouvir a referência original."); }
         });
         item.append(nome, origem, usar, tocar);
         lista.append(item);
@@ -181,9 +221,14 @@ window.AREAS.gerar = {
 
     async function carregarPerfis() {
       perfis = await api("/perfis");
+      if (!perfilSelecionado) {
+        try { perfilSelecionado = perfis.find((item) => item.id === localStorage.getItem("estudio:perfil")) || null; } catch (_) {}
+        perfilSelecionado ||= perfis.find((item) => item.origem === "clonado") || null;
+      }
       if (perfilSelecionado) perfilSelecionado = perfis.find((item) => item.id === perfilSelecionado.id) || null;
       renderizarVozes();
       atualizarVoz();
+      diagnosticoVoz();
     }
 
     function renderizarHistorico(itens) {
@@ -198,43 +243,51 @@ window.AREAS.gerar = {
         const caminho = document.createElement("small");
         caminho.textContent = item.arquivo_saida;
         linha.append(resumo, caminho);
+        if (item.audio_url) {
+          const ouvir = document.createElement("button");
+          ouvir.type = "button";
+          ouvir.textContent = "Ouvir e baixar";
+          ouvir.onclick = () => { mostrarPlayer(item); audio.play().catch(() => mostrarAviso("Clique em reproduzir para ouvir.")); };
+          linha.append(ouvir);
+        }
         lista.append(linha);
       });
     }
 
-    function desenharOnda(chave) {
-      const onda = campo("onda");
-      onda.replaceChildren();
-      let semente = [...chave].reduce((total, letra) => total + letra.charCodeAt(0), 0) || 1;
-      for (let indice = 0; indice < 48; indice += 1) {
-        semente = (semente * 9301 + 49297) % 233280;
-        const barra = document.createElement("i");
-        barra.style.height = `${18 + (semente % 70)}%`;
-        onda.append(barra);
-      }
-    }
-
     function mostrarPlayer(resultado) {
+      previaOriginal.pause();
       const url = resultado.audio_url || resultado.arquivo;
       audio.src = url;
       campo("baixar").href = url;
       campo("tempo-player").textContent = `${Number(resultado.duracao_audio_s).toFixed(2)} s`;
-      desenharOnda(resultado.arquivo || url);
       campo("player").hidden = false;
       campo("vazio").hidden = true;
-      if (perfilSelecionado) previas.set(perfilSelecionado.id, url);
+
     }
 
     async function carregar() {
       try {
         const [catalogo, estado, saidas] = await Promise.all([api("/motores"), api("/estado"), api("/saidas")]);
-        motores = catalogo;
-        campo("motor").replaceChildren(...motores.map((motor) => {
+        motores = catalogo.filter((motor) => motor.id !== "mock");
+        campo("motor").replaceChildren(...motores.filter((motor) => motor.disponivel).map((motor) => {
           const opcao = document.createElement("option");
           opcao.value = motor.id;
           opcao.disabled = !motor.disponivel;
-          opcao.textContent = `${motor.nome}${motor.disponivel ? "" : `: ${motor.motivo || "indisponível"}`}`;
+          opcao.textContent = nomeMotor(motor);
           return opcao;
+        }));
+        const outros = motores.filter((motor) => !motor.disponivel);
+        campo("catalogo-titulo").textContent = `Outros motores · ${outros.length} indisponíveis`;
+        campo("catalogo").replaceChildren(...outros.map((motor) => {
+          const artigo = document.createElement("article");
+          const nome = document.createElement("strong");
+          nome.textContent = nomeMotor(motor);
+          const motivo = document.createElement("small");
+          const texto = motor.motivo || "";
+          motivo.textContent = /platform/i.test(texto) ? "Incompatível com este sistema." : /isn't installed/i.test(texto) ? "Pacote ainda não instalado." : /missing|unreadable/i.test(texto) ? "Faltam arquivos necessários." : "Requer instalação ou configuração adicional.";
+          artigo.title = texto;
+          artigo.append(nome, motivo);
+          return artigo;
         }));
         const ativo = motores.find((motor) => motor.id === estado.motor_ativo && motor.disponivel) || motores.find((motor) => motor.disponivel);
         if (ativo) campo("motor").value = ativo.id;
@@ -250,11 +303,22 @@ window.AREAS.gerar = {
     }
 
     async function gerar() {
+      if (gerando) return;
       const texto = campo("texto").value.trim();
       if (!texto) return mostrarAviso("Escreva o texto do áudio.");
+      const seed = Number(campo("variacao").value);
+      if (!Number.isInteger(seed) || seed < 0 || seed > 2147483647) return mostrarAviso("A semente deve ser um inteiro de 0 a 2147483647.");
+      const motor = campo("motor").value;
+      if (motor === "chatterbox-ptbr" && !perfilSelecionado) return mostrarAviso("Selecione sua voz clonada para usar o Chatterbox PT-BR.");
+      const modo = campo("qualidade").value;
+      const ajustes = motor === "chatterbox-ptbr" ? {} : modo === "broadcast"
+        ? {effect_preset: "broadcast", postprocess_output: true, denoise: true}
+        : {effect_preset: "raw", postprocess_output: false, denoise: false,
+           ...(motor.startsWith("omnivoice") ? {num_step: modo === "detalhado" ? 64 : 32} : {})};
+      gerando = true;
       const botao = area.querySelector("[data-acao='gerar']");
       botao.disabled = true;
-      botao.textContent = "Gerando. O primeiro uso pode baixar vários GB...";
+      botao.textContent = "Gerando áudio…";
       mostrarAviso();
       try {
         const resultado = await api("/gerar", {
@@ -265,7 +329,8 @@ window.AREAS.gerar = {
             motor: campo("motor").value,
             idioma: "pt",
             velocidade: Number(campo("velocidade").value),
-            semente: Number(campo("variacao").value),
+            semente: seed,
+            ajustes,
           }),
         });
         ultimaGeracao = resultado;
@@ -276,6 +341,7 @@ window.AREAS.gerar = {
       } catch (erro) {
         mostrarAviso(erro.message);
       } finally {
+        gerando = false;
         botao.disabled = false;
         botao.textContent = "Gerar áudio Ctrl+Enter";
       }
@@ -315,7 +381,7 @@ window.AREAS.gerar = {
     campo("velocidade").addEventListener("input", () => {
       campo("velocidade-valor").textContent = `${Number(campo("velocidade").value).toLocaleString("pt-BR", { minimumFractionDigits: 1 })}x`;
     });
-    campo("variacao").addEventListener("input", () => campo("variacao-valor").textContent = `${campo("variacao").value}%`);
+    audio.addEventListener("play", () => previaOriginal.pause());
     campo("motor").addEventListener("change", async () => {
       atualizarMotor();
       try {
@@ -326,9 +392,6 @@ window.AREAS.gerar = {
         mostrarAviso(erro.message);
       }
     });
-    area.querySelector("[data-acao='play']").addEventListener("click", () => audio.paused ? audio.play() : audio.pause());
-    audio.addEventListener("play", () => area.querySelector("[data-acao='play']").textContent = "❚❚");
-    audio.addEventListener("pause", () => area.querySelector("[data-acao='play']").textContent = "▶");
     area.querySelector("[data-acao='abrir-pasta']").addEventListener("click", async () => {
       try {
         await api("/saidas/abrir", { method: "POST" });

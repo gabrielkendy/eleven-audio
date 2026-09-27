@@ -45,7 +45,7 @@
 
 ```bash
 # 1. entrar na pasta da base (caminho real, com aspas por causa do acento)
-cd "/c/Users/Gabriel/Downloads/YOUTUBE KENDY/02-EM-PRODUCAO/SÉRIE · ENGENHARIA REVERSA DE PRODUTO/2-MATERIAIS-DA-SOLUCAO/4-BASE-VOICESTUDIO"
+cd "/c/caminho/para/4-BASE-VOICESTUDIO"
 
 # 2. instalar dependencias do JS (Electron, workspace)
 bun install
@@ -90,7 +90,7 @@ base coloca o VoxCPM2 no ambiente Python próprio dele, separado do ambiente pri
 ### 3.4 Preparar a nossa camada fina
 
 ```bash
-cd "/c/Users/Gabriel/Downloads/YOUTUBE KENDY/02-EM-PRODUCAO/SÉRIE · ENGENHARIA REVERSA DE PRODUTO/estudio"
+cd "/c/caminho/para/estudio"
 
 # ambiente da nossa camada
 uv venv .venv

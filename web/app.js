@@ -1,7 +1,16 @@
 const ORDEM_PADRAO = ["gerar", "clonar", "comparar", "desenhar", "transcrever", "agente", "config"];
 const TEMAS = ["estudio", "papel"];
+const ICONES = {
+  gerar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h2l2-5 4 11 3-8 2 4h3"/></svg>',
+  clonar: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="12" height="12" rx="3"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  comparar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 7l4 4M4 7h13a3 3 0 0 1 3 3v1M16 21l4-4-4-4m4 4H7a3 3 0 0 1-3-3v-1"/></svg>',
+  desenhar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Zm10-13 3 3"/></svg>',
+  transcrever: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11v1a7 7 0 0 0 14 0v-1M12 19v3m-4 0h8"/></svg>',
+  agente: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="13" rx="3"/><path d="M9 11h.01M15 11h.01M9 15h6M12 6V3"/></svg>',
+  config: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>',
+};
 
-function definirTema(nome) {
+function definirTema(nome, explicito = false) {
   const tema = TEMAS.includes(nome) ? nome : "papel";
   document.documentElement.dataset.tema = tema;
   document.querySelectorAll("[data-tema-opcao]").forEach((botao) => {
@@ -9,6 +18,7 @@ function definirTema(nome) {
   });
   try {
     localStorage.setItem("estudio:tema", tema);
+    if (explicito) localStorage.setItem("estudio:tema-explicito", "1");
   } catch (_) {
     // O tema ainda funciona quando o navegador bloqueia armazenamento local.
   }
@@ -17,7 +27,15 @@ function definirTema(nome) {
 
 window.definirTema = definirTema;
 try {
-  definirTema(localStorage.getItem("estudio:tema") || "papel");
+  const salvo = localStorage.getItem("estudio:tema");
+  const explicito = localStorage.getItem("estudio:tema-explicito") === "1";
+  const migrou = localStorage.getItem("estudio:tema-papel-v2") === "1";
+  if (!explicito && salvo === "estudio" && !migrou) {
+    localStorage.setItem("estudio:tema-papel-v2", "1");
+    definirTema("papel");
+  } else {
+    definirTema(salvo || "papel");
+  }
 } catch (_) {
   definirTema("papel");
 }
@@ -53,13 +71,13 @@ function montarSeletorTema() {
   const seletor = document.createElement("section");
   seletor.className = "config-licencas";
   seletor.dataset.seletorTema = "";
-  seletor.innerHTML = `<h3>APARÊNCIA</h3><div class="tema-opcoes">
+  seletor.innerHTML = `<h3>Aparência</h3><div class="tema-opcoes">
     <button type="button" data-tema-opcao="estudio">Estúdio</button>
     <button type="button" data-tema-opcao="papel">Papel</button>
   </div>`;
   seletor.addEventListener("click", (evento) => {
     const botao = evento.target.closest("[data-tema-opcao]");
-    if (botao) definirTema(botao.dataset.temaOpcao);
+    if (botao) definirTema(botao.dataset.temaOpcao, true);
   });
   area.prepend(seletor);
   definirTema(document.documentElement.dataset.tema);
@@ -75,7 +93,7 @@ function montarAreas() {
   // Seguro por construcao: titulo e html vem apenas dos nossos proprios arquivos web/*.js,
   // nunca de dado do usuario nem de resposta da base. Texto que vem de fora entra por textContent.
   navegacao.innerHTML = areas
-    .map((area, indice) => `<button data-alvo="${area.id}" class="${indice === 0 ? "ativo" : ""}">${area.titulo || area.id}</button>`)
+    .map((area, indice) => `<button data-alvo="${area.id}" class="${indice === 0 ? "ativo" : ""}">${ICONES[area.id] || ""}<span>${area.titulo || area.id}</span></button>`)
     .join("");
   destino.innerHTML = areas
     .map((area, indice) => `<section id="${area.id}" class="painel" ${indice === 0 ? "" : "hidden"}>${area.html ? area.html() : ""}</section>`)
@@ -123,10 +141,11 @@ async function atualizarRodape() {
     const estado = await resposta.json();
     if (!resposta.ok) throw new Error(estado.detail || "estado indisponível");
     const ultima = estado.tempo_ultima_geracao_s ?? estado.ultima_geracao_s;
+    const ultimaCurta = Number.isFinite(Number(ultima)) ? `${Number(ultima).toFixed(2)} s` : null;
     const base = estado.base === "ok";
     ponto?.classList.toggle("erro", !base);
     if (resumo) resumo.textContent = `${base ? "base conectada" : "base fora"} · ${estado.dispositivo} · motor ${estado.motor_ativo}`;
-    rodape.textContent = `Base ${estado.base} · ${estado.dispositivo} · motor ${estado.motor_ativo} · pasta ${estado.pasta_saidas}${ultima ? ` · última geração ${ultima} s` : ""}`;
+    rodape.textContent = `Base ${estado.base} · ${estado.dispositivo} · motor ${estado.motor_ativo} · pasta ${estado.pasta_saidas}${ultimaCurta ? ` · última geração ${ultimaCurta}` : ""}`;
   } catch (erro) {
     ponto?.classList.add("erro");
     if (resumo) resumo.textContent = "estado indisponível";
