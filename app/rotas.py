@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, HTTPException, Query
 
-from app import base, cofre, saidas
+from app import base, cofre, marcas, saidas
 from app.config import Configuracao
 from app.motor import sintetizar
 
@@ -199,6 +199,16 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
             if arquivo.is_relative_to(config.saidas):
                 item["audio_url"] = f"/saidas/{arquivo.relative_to(config.saidas).as_posix()}"
         return registros
+
+    @rotas.get("/marcas")
+    def listar_marcas(motor: str | None = Query(None), texto: str | None = Query(None)) -> dict[str, Any]:
+        """Marcas de expressão que o motor aceita e o que o texto atual tem de errado."""
+        banco = _abrir_cofre(config)
+        try:
+            escolhido = motor or banco.ler_config("motor_ativo", config.motor)
+        finally:
+            banco.fechar()
+        return marcas.conferir(texto or "", escolhido)
 
     @rotas.post("/saidas/abrir")
     def abrir_saidas() -> dict[str, str]:
