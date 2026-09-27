@@ -24,7 +24,7 @@ def test_gerar_contem_anatomia_contador_e_atalho() -> None:
 def test_clonar_contem_faixa_consentimento_e_comparacao() -> None:
     javascript = Path("web/clonar.js").read_text(encoding="utf-8")
 
-    assert "5 a 15 segundos" in javascript
+    assert "5 a 30 segundos" in javascript
     assert "aceite_consentimento" in javascript
     assert 'class="duplo' in javascript
     assert javascript.count('class="player') >= 2

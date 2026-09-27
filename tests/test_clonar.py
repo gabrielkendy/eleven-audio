@@ -127,7 +127,7 @@ def test_rejeita_clipe_fora_de_cinco_a_quinze_segundos(tmp_path: Path) -> None:
     )
 
     assert resposta.status_code == 400
-    assert "5 a 15 segundos" in resposta.json()["detail"]
+    assert "5 a 30 segundos" in resposta.json()["detail"]
     assert listar_perfis(config) == []
 
 

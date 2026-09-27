@@ -11,12 +11,12 @@ window.AREAS.push({
               <h2>Amostra</h2>
               <div class="solte" data-solte tabindex="0">
                 <strong>Solte um áudio aqui</strong>
-                <span>ou escolha um arquivo de 5 a 15 segundos</span>
+                <span>ou escolha um arquivo de 5 a 30 segundos</span>
                 <input name="arquivo_referencia" type="file" accept="audio/*">
               </div>
               <div class="medidor-clipe" data-medidor>
                 <span data-duracao>Nenhum clipe selecionado.</span>
-                <meter data-faixa min="0" max="15" low="5" high="15" optimum="10" value="0">0 segundos</meter>
+                <meter data-faixa min="0" max="30" low="5" high="30" optimum="20" value="0">0 segundos</meter>
               </div>
               <button type="button" data-gravar>Gravar agora</button>
               <div class="player" data-player-original hidden>
@@ -106,13 +106,13 @@ window.AREAS.push({
 
     function mostrarDuracao(segundos, gravando = false) {
       duracaoClipe = segundos;
-      faixa.value = Math.min(segundos, 15);
-      clipeValido = !gravando && segundos >= 5 && segundos <= 15;
+      faixa.value = Math.min(segundos, 30);
+      clipeValido = !gravando && segundos >= 5 && segundos <= 30;
       raiz.querySelector("[data-medidor]").classList.toggle("valido", clipeValido);
       raiz.querySelector("[data-medidor]").classList.toggle("invalido", !gravando && segundos > 0 && !clipeValido);
-      if (gravando) duracao.textContent = `Gravando: ${segundos.toFixed(1)} s. A faixa válida começa em 5 s e termina em 15 s.`;
+      if (gravando) duracao.textContent = `Gravando: ${segundos.toFixed(1)} s. A faixa válida começa em 5 s e termina em 30 s.`;
       else if (clipeValido) duracao.textContent = `${segundos.toFixed(2)} s medidos. Duração válida.`;
-      else if (segundos > 15) duracao.textContent = `${segundos.toFixed(2)} s medidos. O limite é 15 s. Grave ou escolha outro clipe.`;
+      else if (segundos > 30) duracao.textContent = `${segundos.toFixed(2)} s medidos. O limite é 30 s. Grave ou escolha outro clipe.`;
       else duracao.textContent = `${segundos.toFixed(2)} s medidos. O mínimo é 5 s.`;
     }
 
@@ -239,8 +239,8 @@ window.AREAS.push({
         cronometro = setInterval(() => {
           const segundos = (performance.now() - inicio) / 1000;
           mostrarDuracao(segundos, true);
-          if (segundos > 15) {
-            mensagem("A gravação passou de 15 s e foi interrompida.", true);
+          if (segundos > 30) {
+            mensagem("A gravação passou de 30 s e foi interrompida.", true);
             gravador.stop();
           }
         }, 100);
