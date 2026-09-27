@@ -84,7 +84,8 @@ def test_casca_expoe_os_dois_temas_e_o_contrato_visual() -> None:
     css = (WEB / "estilo.css").read_text(encoding="utf-8")
     js = (WEB / "app.js").read_text(encoding="utf-8")
 
-    assert 'data-tema="estudio"' in html
+    assert 'data-tema="papel"' in html, "o tema padrao da casca e o claro"
+    assert '[data-tema="estudio"]' in css, "o tema escuro continua disponivel como opcao"
     assert '[data-tema="papel"]' in css
     classes = ["compositor", "rail", "pilulas", "chip", "duplo", "player", "solte", "vazio", "aviso", "grade-cartoes"]
     for classe in classes:

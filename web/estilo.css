@@ -23,6 +23,7 @@
   --campo: rgba(0, 0, 0, 0.42);
   --foco: rgba(61, 90, 254, 0.22);
   --sombra: rgba(0, 0, 0, 0.9);
+  --brilho: rgba(61, 90, 254, 0.95);
   --rodape-fundo: rgba(5, 5, 16, 0.88);
   --scroll: rgba(255, 255, 255, 0.18);
   --raio: 14px;
@@ -33,28 +34,31 @@
 }
 
 [data-tema="papel"] {
-  --fundo: #fdfcfc;
-  --painel: #f5f3f1;
+  --fundo: #ffffff;
+  --painel: #f7f7f8;
   --cartao: #ffffff;
-  --cartao-alto: #f5f3f1;
+  --cartao-alto: #f4f4f5;
   --fundo-painel: var(--painel);
   --fundo-cartao: var(--cartao);
   --fundo-cartao-alto: var(--cartao-alto);
-  --texto: #0a0a0a;
-  --texto-fraco: #5b5b66;
-  --texto-tenue: #74747e;
-  --acento: #0a0a0a;
-  --acento-claro: #2b2b33;
+  --texto: #0f0f10;
+  --texto-fraco: #62636c;
+  --texto-tenue: #9b9ca6;
+  --acento: #101012;
+  --acento-claro: #34343a;
   --dourado: #7a5017;
-  --borda: rgba(0, 0, 0, 0.08);
-  --borda-forte: rgba(0, 0, 0, 0.16);
+  --borda: rgba(15, 15, 16, 0.09);
+  --borda-forte: rgba(15, 15, 16, 0.18);
   --sucesso: #087a50;
   --erro: #b42318;
   --campo: #ffffff;
-  --foco: rgba(10, 10, 10, 0.14);
-  --sombra: rgba(30, 25, 20, 0.2);
-  --rodape-fundo: rgba(253, 252, 252, 0.9);
-  --scroll: rgba(0, 0, 0, 0.22);
+  --foco: rgba(16, 16, 18, 0.12);
+  --sombra: rgba(20, 20, 24, 0.1);
+  --brilho: rgba(16, 16, 18, 0.3);
+  --rodape-fundo: rgba(255, 255, 255, 0.92);
+  --scroll: rgba(15, 15, 16, 0.24);
+  --raio: 16px;
+  --raio-pequeno: 12px;
 }
 
 * { box-sizing: border-box; }
@@ -294,7 +298,7 @@ button[type="submit"],
   color: #fff;
   font-weight: 600;
   padding: 14px 26px;
-  box-shadow: 0 18px 44px -22px rgba(61, 90, 254, 0.95);
+  box-shadow: 0 18px 44px -22px var(--brilho);
 }
 
 button.primario:hover,
@@ -302,7 +306,7 @@ button[type="submit"]:hover,
 #comparar-gerar:hover,
 #agente-ligar:hover {
   background: linear-gradient(135deg, var(--acento-claro), var(--acento));
-  box-shadow: 0 22px 52px -20px rgba(61, 90, 254, 1);
+  box-shadow: 0 22px 52px -20px var(--brilho);
 }
 
 .grid, .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
@@ -668,3 +672,59 @@ input[type="checkbox"] {
 .onda { display: flex; align-items: center; gap: 2px; height: 44px; flex: 1; min-width: 0; }
 .onda > span { flex: 1; min-width: 2px; border-radius: 999px; background: var(--acento-claro); opacity: 0.55; }
 .onda > span.tocando { opacity: 1; }
+
+/* ---------- tema papel: acabamento no padrao do alvo (branco, cartao limpo, acao preta) ---------- */
+
+[data-tema="papel"] body { background: var(--fundo); }
+
+/* cartao principal: borda de um fio e sombra curta, sem profundidade de vitrine */
+[data-tema="papel"] .painel,
+[data-tema="papel"] .compositor {
+  box-shadow: 0 1px 2px rgba(16, 16, 18, 0.04), 0 12px 32px -30px var(--sombra);
+}
+
+/* item ativo da lateral: branco com contorno, sem brilho colorido */
+[data-tema="papel"] .menu button.ativo {
+  background: #ffffff;
+  border-color: var(--borda-forte);
+  box-shadow: 0 1px 2px rgba(16, 16, 18, 0.06);
+}
+
+[data-tema="papel"] .menu button.ativo::before { background: var(--acento); box-shadow: none; }
+
+/* acao principal: preto solido, como o alvo */
+[data-tema="papel"] button.primario,
+[data-tema="papel"] button[type="submit"],
+[data-tema="papel"] #comparar-gerar,
+[data-tema="papel"] #agente-ligar {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: #ffffff;
+  box-shadow: 0 10px 24px -16px var(--brilho);
+}
+
+[data-tema="papel"] button.primario:hover,
+[data-tema="papel"] button[type="submit"]:hover,
+[data-tema="papel"] #comparar-gerar:hover,
+[data-tema="papel"] #agente-ligar:hover {
+  background: #2a2a2f;
+  border-color: #2a2a2f;
+}
+
+/* a marca continua azul, com brilho discreto */
+[data-tema="papel"] .marca-simbolo { box-shadow: 0 8px 20px -14px rgba(61, 90, 254, 0.75); }
+
+/* campos e chips */
+[data-tema="papel"] input,
+[data-tema="papel"] select,
+[data-tema="papel"] textarea { background: var(--campo); }
+
+[data-tema="papel"] .chip:hover,
+[data-tema="papel"] .pílula:hover { border-color: var(--borda-forte); }
+
+/* rodape */
+[data-tema="papel"] #rodape { border-top: 1px solid var(--borda); }
+
+/* onda legivel no claro */
+[data-tema="papel"] .onda > span { opacity: 0.35; }
+[data-tema="papel"] .onda > span.tocando { opacity: 0.9; }

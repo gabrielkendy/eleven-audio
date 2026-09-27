@@ -2,7 +2,7 @@ const ORDEM_PADRAO = ["gerar", "clonar", "comparar", "desenhar", "transcrever", 
 const TEMAS = ["estudio", "papel"];
 
 function definirTema(nome) {
-  const tema = TEMAS.includes(nome) ? nome : "estudio";
+  const tema = TEMAS.includes(nome) ? nome : "papel";
   document.documentElement.dataset.tema = tema;
   document.querySelectorAll("[data-tema-opcao]").forEach((botao) => {
     botao.setAttribute("aria-pressed", String(botao.dataset.temaOpcao === tema));
@@ -17,9 +17,9 @@ function definirTema(nome) {
 
 window.definirTema = definirTema;
 try {
-  definirTema(localStorage.getItem("estudio:tema"));
+  definirTema(localStorage.getItem("estudio:tema") || "papel");
 } catch (_) {
-  definirTema("estudio");
+  definirTema("papel");
 }
 
 function listaDeAreas() {
