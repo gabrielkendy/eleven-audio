@@ -132,7 +132,8 @@ def comparar(
             arquivos = []
             for motor in motores:
                 if motor == "mock":
-                    item = sintetizar(texto, motor="mock", pasta_saida=pasta_do_dia(config.saidas), perfil_id=perfil_id)
+                    # sintetizar ja aplica a pasta do dia; nao repetir aqui
+                    item = sintetizar(texto, motor="mock", pasta_saida=config.saidas, perfil_id=perfil_id)
                     item["caminho_absoluto"] = str(Path(item["arquivo"]).resolve())
                 else:
                     item = _gerar_real(
