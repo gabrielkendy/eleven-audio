@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -44,6 +44,18 @@ def criar_app(
         aplicacao.include_router(modulo.router)
     aplicacao.mount("/saidas", StaticFiles(directory=config.saidas), name="saidas")
     web = Path(__file__).resolve().parents[1] / "web"
+
+    @aplicacao.middleware("http")
+    async def sem_cache(
+        requisicao: Request,
+        chamar_proximo: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        """Estudio local: depois de editar a tela, o navegador nao pode servir a versao velha."""
+        resposta = await chamar_proximo(requisicao)
+        if requisicao.url.path == "/" or requisicao.url.path.startswith("/web/"):
+            resposta.headers["Cache-Control"] = "no-store, must-revalidate"
+        return resposta
+
     if web.exists():
         aplicacao.mount("/web", StaticFiles(directory=web), name="web")
 
