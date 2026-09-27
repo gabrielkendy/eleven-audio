@@ -1,49 +1,59 @@
-.area-config {
-  display: grid;
-  gap: 1.25rem;
-}
+/* Painel de configuração no mesmo padrão escuro do estúdio. */
+
+.area-config { display: grid; gap: 22px; }
 
 .config-grade {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
 }
 
-.config-grade > div,
-.config-licencas {
-  padding: 1rem;
-  border: 1px solid currentColor;
-  border-radius: 0.75rem;
+.config-grade > div {
+  background: var(--fundo-cartao);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-pequeno);
+  padding: 16px;
+  transition: border-color 0.25s var(--ease), transform 0.25s var(--ease);
 }
+
+.config-grade > div:hover { border-color: var(--borda-forte); transform: translateY(-2px); }
 
 .config-grade span,
-.config-grade strong {
-  display: block;
-}
+.config-grade strong { display: block; }
 
 .config-grade span {
-  margin-bottom: 0.35rem;
-  opacity: 0.72;
+  margin-bottom: 6px;
+  color: var(--texto-tenue);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
+
+.config-grade strong { font-size: 15px; word-break: break-word; }
 
 .config-abrir {
   width: 100%;
-  min-height: 3.5rem;
-  padding: 1rem;
+  min-height: 52px;
+  background: linear-gradient(135deg, var(--acento), #2a3fd6);
   border: 0;
-  border-radius: 0.75rem;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 18px 44px -20px rgba(61, 90, 254, 0.9);
 }
 
 .config-aviso,
-.config-licencas p {
-  margin: 0;
+.config-licencas p { margin: 0; color: var(--texto-tenue); font-size: 12.5px; }
+
+.config-licencas {
+  background: var(--fundo-cartao);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-pequeno);
+  padding: 20px;
 }
 
-.config-lista-licencas {
-  display: grid;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
+.config-licencas h3 { margin-top: 0; }
+
+.config-lista-licencas { display: grid; gap: 10px; margin-bottom: 14px; }
+.config-lista-licencas p { color: var(--texto-fraco); }
+.config-lista-licencas strong { color: var(--texto); }

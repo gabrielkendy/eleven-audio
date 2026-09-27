@@ -4,20 +4,40 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Estúdio de Voz Local</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600&display=swap">
     <link rel="stylesheet" href="/web/estilo.css">
     <link rel="stylesheet" href="/web/estilo-config.css">
   </head>
   <body>
-    <main>
-      <header>
-        <p class="rotulo">PRIVADO · LOCAL · SEM CONTA</p>
-        <h1>Estúdio de Voz Local</h1>
-        <p>Texto e voz ficam na sua máquina.</p>
-      </header>
-      <nav id="navegacao" aria-label="Áreas do estúdio"></nav>
-      <div id="areas"></div>
-    </main>
-    <footer id="rodape">Consultando o estado da máquina...</footer>
+    <div class="estudio">
+      <aside class="lateral">
+        <div class="marca">
+          <span class="marca-simbolo">EA</span>
+          <span class="marca-texto"><strong>Estúdio de Voz</strong><small>local · sem conta</small></span>
+        </div>
+        <nav id="navegacao" aria-label="Áreas do estúdio" class="menu"></nav>
+        <div class="lateral-rodape">
+          <p class="selo">100% na sua máquina</p>
+          <p class="lateral-nota">Sem login, sem nuvem, sem cobrança por minuto.</p>
+        </div>
+      </aside>
+
+      <main class="conteudo">
+        <header class="topo">
+          <div>
+            <p class="rotulo">ESTÚDIO PRIVADO</p>
+            <h1 id="titulo-area">Gerar áudio</h1>
+          </div>
+          <div class="topo-status">
+            <span class="ponto" id="ponto-base" aria-hidden="true"></span>
+            <span id="resumo-status">Consultando o estado da máquina...</span>
+          </div>
+        </header>
+        <div id="areas"></div>
+      </main>
+    </div>
+    <footer id="rodape" class="rodape">Consultando o estado da máquina...</footer>
     <script>window.AREAS = window.AREAS || [];</script>
     <script src="/web/gerar.js" defer></script>
     <script src="/web/clonar.js" defer></script>

@@ -36,8 +36,8 @@ window.AREAS.gerar = {
 
     async function carregar() {
       try {
-        const [motores, maquina, itens] = await Promise.all([
-          api("/motores"), api("/estado"), api("/saidas"),
+        const [motores, maquina, itens, perfis] = await Promise.all([
+          api("/motores"), api("/estado"), api("/saidas"), api("/perfis"),
         ]);
         campo("motor").innerHTML = motores.map((motor) =>
           `<option value="${motor.id}" ${motor.disponivel ? "" : "disabled"}>${motor.nome}${motor.disponivel ? "" : ` · ${motor.motivo}`}</option>`
@@ -45,6 +45,7 @@ window.AREAS.gerar = {
         campo("motor").value = motores.some((m) =>
           m.id === maquina.motor_ativo && m.disponivel
         ) ? maquina.motor_ativo : "mock";
+        preencherPerfis(perfis);
         campo("saidas").innerHTML = itens.length ? itens.slice(0, 5).map((item) =>
           `<li>${item.motor} · ${Number(item.duracao_audio_s).toFixed(2)} s · ${item.arquivo_saida}</li>`
         ).join("") : "<li>Nenhuma saída ainda.</li>";
@@ -53,6 +54,26 @@ window.AREAS.gerar = {
         estado.className = "erro";
       }
     }
+
+    function preencherPerfis(perfis) {
+      const escolhido = campo("perfil").value;
+      campo("perfil").innerHTML = `<option value="">Voz padrão</option>` + perfis.map((perfil) =>
+        `<option value="${perfil.id}">${perfil.nome}${perfil.origem ? ` · ${perfil.origem}` : ""}</option>`
+      ).join("");
+      campo("perfil").value = escolhido && perfis.some((perfil) => perfil.id === escolhido) ? escolhido : "";
+    }
+
+    async function recarregarPerfis() {
+      try {
+        preencherPerfis(await api("/perfis"));
+      } catch (erro) {
+        // sem perfis a area continua funcionando com a voz padrao
+      }
+    }
+
+    window.addEventListener("estudio:area-visivel", (evento) => {
+      if (evento.detail?.id === "gerar") recarregarPerfis();
+    });
 
     campo("texto").addEventListener("input", (evento) => {
       campo("contador").textContent = `${evento.target.value.length} / 5000`;

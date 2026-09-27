@@ -29,6 +29,7 @@ function montarAreas() {
   const areas = listaDeAreas();
   const navegacao = document.querySelector("#navegacao");
   const destino = document.querySelector("#areas");
+  const titulo = document.querySelector("#titulo-area");
 
   // Seguro por construcao: titulo e html vem apenas dos nossos proprios arquivos web/*.js,
   // nunca de dado do usuario nem de resposta da base. Texto que vem de fora entra por textContent.
@@ -40,25 +41,42 @@ function montarAreas() {
     .join("");
 
   areas.forEach((area) => area.montar?.(document.querySelector(`#${area.id}`)));
+
+  const mostrar = (id) => {
+    const area = areas.find((item) => item.id === id);
+    navegacao.querySelectorAll("button").forEach((item) => item.classList.toggle("ativo", item.dataset.alvo === id));
+    destino.querySelectorAll("section").forEach((painel) => {
+      painel.hidden = painel.id !== id;
+    });
+    if (titulo && area) titulo.textContent = area.titulo || area.id;
+    document.title = `${area?.titulo || "Estúdio"} · Estúdio de Voz Local`;
+    window.dispatchEvent(new CustomEvent("estudio:area-visivel", { detail: { id } }));
+  };
+
   navegacao.addEventListener("click", (evento) => {
     const botao = evento.target.closest("button[data-alvo]");
-    if (!botao) return;
-    navegacao.querySelectorAll("button").forEach((item) => item.classList.toggle("ativo", item === botao));
-    destino.querySelectorAll("section").forEach((painel) => {
-      painel.hidden = painel.id !== botao.dataset.alvo;
-    });
+    if (botao) mostrar(botao.dataset.alvo);
   });
+
+  if (areas[0]) mostrar(areas[0].id);
 }
 
 async function atualizarRodape() {
   const rodape = document.querySelector("#rodape");
+  const resumo = document.querySelector("#resumo-status");
+  const ponto = document.querySelector("#ponto-base");
   try {
     const resposta = await fetch("/api/estado");
     const estado = await resposta.json();
     if (!resposta.ok) throw new Error(estado.detail || "estado indisponível");
-    const ultima = estado.tempo_ultima_geracao_s ?? estado.ultima_geracao_s ?? "—";
-    rodape.textContent = `Base ${estado.base} · ${estado.dispositivo} · motor ${estado.motor_ativo} · última geração ${ultima} s`;
+    const ultima = estado.tempo_ultima_geracao_s ?? estado.ultima_geracao_s;
+    const base = estado.base === "ok";
+    ponto?.classList.toggle("erro", !base);
+    if (resumo) resumo.textContent = `${base ? "base conectada" : "base fora"} · ${estado.dispositivo} · motor ${estado.motor_ativo}`;
+    rodape.textContent = `Base ${estado.base} · ${estado.dispositivo} · motor ${estado.motor_ativo} · pasta ${estado.pasta_saidas}${ultima ? ` · última geração ${ultima} s` : ""}`;
   } catch (erro) {
+    ponto?.classList.add("erro");
+    if (resumo) resumo.textContent = "estado indisponível";
     rodape.textContent = `Estado indisponível: ${erro.message}`;
   }
 }
