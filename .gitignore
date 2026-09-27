@@ -1,0 +1,51 @@
+# Segredos e credenciais
+.env
+.env.*
+!.env.example
+*.env
+credentials/
+credentials.*
+secrets/
+secrets.*
+acessos*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Dados locais e saídas
+/dados/
+/data/
+/saidas/
+/audio/
+/build/
+/dist/
+
+# Dependências e ambientes
+.venv/
+venv/
+env/
+node_modules/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.next/
+
+# Modelos e caches pesados
+.cache/
+/models/
+/weights/
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.gguf
+
+# Sistema e editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
