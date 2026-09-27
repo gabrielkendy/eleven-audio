@@ -1,0 +1,49 @@
+.area-config {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.config-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.75rem;
+}
+
+.config-grade > div,
+.config-licencas {
+  padding: 1rem;
+  border: 1px solid currentColor;
+  border-radius: 0.75rem;
+}
+
+.config-grade span,
+.config-grade strong {
+  display: block;
+}
+
+.config-grade span {
+  margin-bottom: 0.35rem;
+  opacity: 0.72;
+}
+
+.config-abrir {
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 1rem;
+  border: 0;
+  border-radius: 0.75rem;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.config-aviso,
+.config-licencas p {
+  margin: 0;
+}
+
+.config-lista-licencas {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
