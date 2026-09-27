@@ -150,6 +150,10 @@ Um bom pull request aqui é pequeno, tem teste e explica o motivo. Um número se
 
 MIT. Veja `LICENSE`.
 
-A base de voz é um projeto separado, sob AGPL-3.0, e não está incluída aqui. O `LICENSE` traz a observação sobre essa relação.
+Atenção a duas coisas antes de usar em produção:
 
-Os ícones da interface vêm do Tabler Icons, sob MIT, com atribuição em `web/LICENCA-TABLER.md`. A fonte Inter é distribuída sob a SIL Open Font License.
+- **A base de voz não está incluída aqui** e tem licença própria (AGPL-3.0). Se você redistribuir uma cópia dela junto com este código, as obrigações dela valem para essa cópia.
+- **Cada motor tem licença própria.** Alguns modelos locais são liberados só para pesquisa ou uso não comercial. Confira antes de usar o áudio comercialmente.
+
+Os avisos completos de terceiros, incluindo a atribuição dos ícones do Tabler e
+da fonte Inter, estão em `NOTICE.md`.

@@ -19,12 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Observacao sobre a base VoiceStudio:
-
-Este repositorio NAO inclui a base VoiceStudio. Ele e um adaptador que conversa
-com ela por HTTP em 127.0.0.1. A base e um projeto separado, distribuido sob
-AGPL-3.0, e mantem a propria licenca. Se voce for redistribuir uma copia da
-base junto com este projeto, as obrigacoes da AGPL-3.0 se aplicam a ela.
