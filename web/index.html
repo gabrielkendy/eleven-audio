@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Estúdio de Voz Local</title>
     <link rel="stylesheet" href="/web/estilo.css">
+    <link rel="stylesheet" href="/web/estilo-config.css">
   </head>
   <body>
     <main>
@@ -17,8 +18,14 @@
       <div id="areas"></div>
     </main>
     <footer id="rodape">Consultando o estado da máquina...</footer>
-    <script>window.AREAS = window.AREAS || {};</script>
+    <script>window.AREAS = window.AREAS || [];</script>
     <script src="/web/gerar.js" defer></script>
+    <script src="/web/clonar.js" defer></script>
+    <script src="/web/comparar.js" defer></script>
+    <script src="/web/desenhar.js" defer></script>
+    <script src="/web/transcrever.js" defer></script>
+    <script src="/web/agente.js" defer></script>
+    <script src="/web/config.js" defer></script>
     <script src="/web/app.js" defer></script>
   </body>
 </html>

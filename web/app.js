@@ -1,23 +1,36 @@
+const ORDEM_PADRAO = ["gerar", "clonar", "comparar", "desenhar", "transcrever", "agente", "config"];
+
+function listaDeAreas() {
+  const bruto = window.AREAS || [];
+  const itens = Array.isArray(bruto)
+    ? bruto.map((area, indice) => ({ ...area, id: area.id || `area-${indice}` }))
+    : Object.entries(bruto).map(([id, area]) => ({ ...area, id }));
+
+  return itens.sort((a, b) => {
+    const posicao = (area) => area.ordem ?? ORDEM_PADRAO.indexOf(area.id) + 1 || 99;
+    return posicao(a) - posicao(b);
+  });
+}
+
 function montarAreas() {
-  const areas = Object.entries(window.AREAS)
-    .sort(([, a], [, b]) => (a.ordem || 99) - (b.ordem || 99));
+  const areas = listaDeAreas();
   const navegacao = document.querySelector("#navegacao");
   const destino = document.querySelector("#areas");
 
-  navegacao.innerHTML = areas.map(([id, area], indice) =>
-    `<button data-alvo="${id}" class="${indice === 0 ? "ativo" : ""}">${area.titulo}</button>`
-  ).join("");
-  destino.innerHTML = areas.map(([id, area], indice) =>
-    `<section id="${id}" class="painel" ${indice === 0 ? "" : "hidden"}>${area.html()}</section>`
-  ).join("");
+  // Seguro por construcao: titulo e html vem apenas dos nossos proprios arquivos web/*.js,
+  // nunca de dado do usuario nem de resposta da base. Texto que vem de fora entra por textContent.
+  navegacao.innerHTML = areas
+    .map((area, indice) => `<button data-alvo="${area.id}" class="${indice === 0 ? "ativo" : ""}">${area.titulo || area.id}</button>`)
+    .join("");
+  destino.innerHTML = areas
+    .map((area, indice) => `<section id="${area.id}" class="painel" ${indice === 0 ? "" : "hidden"}>${area.html ? area.html() : ""}</section>`)
+    .join("");
 
-  areas.forEach(([id, area]) => area.montar?.(document.querySelector(`#${id}`)));
+  areas.forEach((area) => area.montar?.(document.querySelector(`#${area.id}`)));
   navegacao.addEventListener("click", (evento) => {
     const botao = evento.target.closest("button[data-alvo]");
     if (!botao) return;
-    navegacao.querySelectorAll("button").forEach((item) =>
-      item.classList.toggle("ativo", item === botao)
-    );
+    navegacao.querySelectorAll("button").forEach((item) => item.classList.toggle("ativo", item === botao));
     destino.querySelectorAll("section").forEach((painel) => {
       painel.hidden = painel.id !== botao.dataset.alvo;
     });
@@ -25,14 +38,15 @@ function montarAreas() {
 }
 
 async function atualizarRodape() {
+  const rodape = document.querySelector("#rodape");
   try {
     const resposta = await fetch("/api/estado");
     const estado = await resposta.json();
     if (!resposta.ok) throw new Error(estado.detail || "estado indisponível");
-    document.querySelector("#rodape").textContent =
-      `Base ${estado.base} · ${estado.dispositivo} · motor ${estado.motor_ativo} · última geração ${estado.tempo_ultima_geracao_s ?? "—"} s`;
+    const ultima = estado.tempo_ultima_geracao_s ?? estado.ultima_geracao_s ?? "—";
+    rodape.textContent = `Base ${estado.base} · ${estado.dispositivo} · motor ${estado.motor_ativo} · última geração ${ultima} s`;
   } catch (erro) {
-    document.querySelector("#rodape").textContent = `Estado indisponível: ${erro.message}`;
+    rodape.textContent = `Estado indisponível: ${erro.message}`;
   }
 }
 

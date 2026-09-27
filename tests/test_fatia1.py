@@ -96,9 +96,8 @@ def test_contrato_da_fatia_um_e_shell_de_areas(tmp_path: Path) -> None:
     } <= rotas
     raiz = Path(__file__).resolve().parents[1]
     assert "window.AREAS" in (raiz / "web/index.html").read_text(encoding="utf-8")
-    assert "Object.entries(window.AREAS)" in (raiz / "web/app.js").read_text(
-        encoding="utf-8"
-    )
+    assert "Object.entries" in (raiz / "web/app.js").read_text(encoding="utf-8")
+    assert "Array.isArray" in (raiz / "web/app.js").read_text(encoding="utf-8")
     assert "window.AREAS.gerar" in (raiz / "web/gerar.js").read_text(
         encoding="utf-8"
     )

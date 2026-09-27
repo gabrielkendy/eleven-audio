@@ -97,10 +97,12 @@ def test_api_saude_informa_app_base_e_disco(tmp_path: Path) -> None:
     assert resposta.json()["disco_livre_gb"] >= 0
 
 
-def test_fatia_zero_nao_expoe_clonagem_ou_consentimento_409(tmp_path: Path) -> None:
+def test_app_integrado_expoe_clonagem_com_consentimento(tmp_path: Path) -> None:
     config = carregar_config({}, raiz=tmp_path)
     app = criar_app(config, verificar_base=lambda: False)
 
     rotas = {rota.path for rota in app.routes}
 
-    assert "/api/clonar" not in rotas
+    # A fatia 0 nasceu sem clonagem. Depois da integracao das fatias 1 a 7, clonagem e perfis existem.
+    assert "/api/clonar" in rotas
+    assert "/api/perfis" in rotas

@@ -7,9 +7,25 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import base, cofre
+from app import (
+    base,
+    cofre,
+    rotas_agente,
+    rotas_clonar,
+    rotas_comparar,
+    rotas_desenhar,
+    rotas_transcrever,
+)
 from app.config import Configuracao, carregar_config
 from app.rotas import criar_rotas
+
+ROTAS_DAS_FATIAS = (
+    rotas_clonar,
+    rotas_comparar,
+    rotas_desenhar,
+    rotas_transcrever,
+    rotas_agente,
+)
 
 
 def criar_app(
@@ -24,6 +40,8 @@ def criar_app(
     consulta_base = verificar_base or (lambda: base.saudavel(config))
     aplicacao = FastAPI(title="Estudio de Voz Local")
     aplicacao.include_router(criar_rotas(config, consulta_base))
+    for modulo in ROTAS_DAS_FATIAS:
+        aplicacao.include_router(modulo.router)
     aplicacao.mount("/saidas", StaticFiles(directory=config.saidas), name="saidas")
     web = Path(__file__).resolve().parents[1] / "web"
     if web.exists():
