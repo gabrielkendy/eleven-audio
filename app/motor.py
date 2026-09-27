@@ -21,6 +21,7 @@ def sintetizar(
     idioma: str = "pt",
     velocidade: float = 1.0,
     semente: int | None = None,
+    ajustes: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     if not texto.strip():
         raise ValueError("O texto do teste nao pode estar vazio")
@@ -43,6 +44,7 @@ def sintetizar(
                 idioma=idioma,
                 velocidade=velocidade,
                 semente=semente,
+                ajustes=ajustes,
             ),
         )
         medicao = saidas.medir(arquivo)

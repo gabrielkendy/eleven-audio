@@ -42,8 +42,7 @@ def selecionar_motor(config: Configuracao, motor: str) -> None:
         raise ErroBase(f"falha ao falar com a base: {erro}") from erro
 
 
-def gerar_audio(
-    config: Configuracao,
+def montar_corpo(
     *,
     texto: str,
     motor: str,
@@ -51,7 +50,9 @@ def gerar_audio(
     idioma: str,
     velocidade: float,
     semente: int | None,
-) -> bytes:
+    ajustes: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Monta o formulário que vai para o /generate da base. Puro e testável, sem rede."""
     corpo = {
         "text": texto,
         "engine": motor,
@@ -63,6 +64,30 @@ def gerar_audio(
         corpo["profile_id"] = perfil_id
     if semente is not None:
         corpo["seed"] = str(semente)
+    corpo.update(ajustes or {})
+    return corpo
+
+
+def gerar_audio(
+    config: Configuracao,
+    *,
+    texto: str,
+    motor: str,
+    perfil_id: str | None,
+    idioma: str,
+    velocidade: float,
+    semente: int | None,
+    ajustes: dict[str, str] | None = None,
+) -> bytes:
+    corpo = montar_corpo(
+        texto=texto,
+        motor=motor,
+        perfil_id=perfil_id,
+        idioma=idioma,
+        velocidade=velocidade,
+        semente=semente,
+        ajustes=ajustes,
+    )
     try:
         with httpx.Client(timeout=config.timeout_s) as cliente:
             resposta = cliente.post(f"{config.base_url}/generate", data=corpo)

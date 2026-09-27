@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, HTTPException, Query
 
+from app import ajustes as ajustes_de_qualidade
 from app import base, cofre, marcas, saidas
 from app.config import Configuracao
 from app.motor import sintetizar
@@ -115,6 +116,10 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
             raise HTTPException(422, "velocidade deve ser um numero") from erro
         if not 0.5 <= velocidade <= 2.0:
             raise HTTPException(422, "velocidade deve estar entre 0,5 e 2,0")
+        try:
+            ajustes_pedidos = ajustes_de_qualidade.normalizar(corpo.get("ajustes"))
+        except (TypeError, ValueError) as erro:
+            raise HTTPException(422, str(erro)) from erro
         banco = _abrir_cofre(config)
         try:
             motor = str(corpo.get("motor") or banco.ler_config("motor_ativo", config.motor))
@@ -144,6 +149,7 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
                 idioma=str(corpo.get("idioma", "pt")),
                 velocidade=velocidade,
                 semente=corpo.get("semente"),
+                ajustes=ajustes_pedidos,
             )
         except base.ErroBase as erro:
             raise HTTPException(502, f"erro da base: {erro}") from erro
@@ -168,6 +174,8 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
             **resultado,
             "geracao_id": identificador,
             "audio_url": f"/saidas/{relativo}",
+            "ajustes": ajustes_pedidos,
+            "resumo_ajustes": ajustes_de_qualidade.resumo(ajustes_pedidos, velocidade),
         }
 
     @rotas.get("/gerar/{geracao_id}")
