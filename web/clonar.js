@@ -271,7 +271,7 @@ window.AREAS.push({
     form.addEventListener("submit", async (evento) => {
       evento.preventDefault();
       if (!clipe) return mensagem("Escolha ou grave um clipe.", true);
-      if (!clipeValido) return mensagem(`O clipe precisa ter de 5 a 15 segundos. Duração medida: ${duracaoClipe.toFixed(2)} s.`, true);
+      if (!clipeValido) return mensagem(`O clipe precisa ter de 5 a 30 segundos. Duração medida: ${duracaoClipe.toFixed(2)} s.`, true);
       const dados = new FormData(form);
       dados.set("arquivo_referencia", clipe, clipe.name);
       criar.disabled = true;
