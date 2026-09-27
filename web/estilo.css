@@ -1,0 +1,38 @@
+:root {
+  --fundo: #f2efe8;
+  --papel: #fffdf8;
+  --texto: #171714;
+  --muted: #68665f;
+  --linha: #d5d0c6;
+  --destaque: #ff5c35;
+  --destaque-escuro: #d83b17;
+  --ok: #237a57;
+  --erro: #a83232;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fundo); color: var(--texto); font: 16px/1.5 system-ui, sans-serif; }
+main { width: min(920px, calc(100% - 32px)); margin: 48px auto 96px; }
+header { border-bottom: 1px solid var(--linha); padding-bottom: 24px; }
+h1 { margin: 4px 0; font: 700 clamp(2.4rem, 8vw, 5.5rem)/.95 Georgia, serif; letter-spacing: -.05em; }
+h2 { margin: 0; font: 700 2rem/1 Georgia, serif; }
+.rotulo { color: var(--destaque-escuro); font-weight: 800; letter-spacing: .14em; }
+nav { display: flex; gap: 8px; margin: 24px 0; overflow-x: auto; }
+button { border: 1px solid var(--linha); background: transparent; padding: 11px 16px; cursor: pointer; font: inherit; }
+nav button.ativo { background: var(--texto); color: var(--papel); }
+.painel { background: var(--papel); border: 1px solid var(--linha); padding: clamp(20px, 5vw, 48px); box-shadow: 8px 8px 0 var(--linha); }
+.titulo-area { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+.titulo-area span { color: var(--destaque-escuro); font-weight: 800; }
+label { display: grid; gap: 8px; font-weight: 700; }
+textarea, select, input { width: 100%; border: 1px solid var(--linha); background: white; color: var(--texto); padding: 12px; font: inherit; }
+textarea:focus, select:focus, input:focus, button:focus { outline: 3px solid color-mix(in srgb, var(--destaque) 35%, transparent); outline-offset: 2px; }
+.linha { display: flex; justify-content: flex-end; color: var(--muted); }
+.grade { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin: 20px 0; }
+.primario { width: 100%; border-color: var(--destaque-escuro); background: var(--destaque); color: var(--texto); font-weight: 800; }
+.primario:disabled { opacity: .5; cursor: wait; }
+audio { width: 100%; margin-top: 16px; }
+#saidas { padding: 0; list-style: none; color: var(--muted); }
+footer { position: fixed; inset: auto 0 0; border-top: 1px solid var(--linha); background: var(--texto); color: var(--papel); padding: 10px 24px; text-align: center; font-size: .9rem; }
+.erro { color: var(--erro); }
+.ok { color: var(--ok); }
+@media (max-width: 600px) { .grade { grid-template-columns: 1fr; } main { margin-top: 24px; } }

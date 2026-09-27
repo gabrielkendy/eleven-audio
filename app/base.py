@@ -3,7 +3,13 @@ from __future__ import annotations
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+import httpx
+
 from app.config import Configuracao
+
+
+class ErroBase(RuntimeError):
+    pass
 
 
 def saudavel(config: Configuracao) -> bool:
@@ -13,3 +19,57 @@ def saudavel(config: Configuracao) -> bool:
             return 200 <= resposta.status < 300
     except (HTTPError, URLError, TimeoutError, OSError):
         return False
+
+
+def listar_motores(config: Configuracao) -> dict[str, object]:
+    with httpx.Client(timeout=min(config.timeout_s, 30.0)) as cliente:
+        resposta = cliente.get(f"{config.base_url}/engines/tts")
+        resposta.raise_for_status()
+        return resposta.json()
+
+
+def selecionar_motor(config: Configuracao, motor: str) -> None:
+    try:
+        with httpx.Client(timeout=min(config.timeout_s, 30.0)) as cliente:
+            resposta = cliente.post(
+                f"{config.base_url}/engines/select",
+                json={"family": "tts", "backend_id": motor},
+            )
+            resposta.raise_for_status()
+    except httpx.HTTPStatusError as erro:
+        raise ErroBase(f"a base recusou o motor: {erro.response.text}") from erro
+    except httpx.HTTPError as erro:
+        raise ErroBase(f"falha ao falar com a base: {erro}") from erro
+
+
+def gerar_audio(
+    config: Configuracao,
+    *,
+    texto: str,
+    motor: str,
+    perfil_id: str | None,
+    idioma: str,
+    velocidade: float,
+    semente: int | None,
+) -> bytes:
+    corpo = {
+        "text": texto,
+        "engine": motor,
+        "language": idioma,
+        "speed": str(velocidade),
+        "stream": "false",
+    }
+    if perfil_id:
+        corpo["profile_id"] = perfil_id
+    if semente is not None:
+        corpo["seed"] = str(semente)
+    try:
+        with httpx.Client(timeout=config.timeout_s) as cliente:
+            resposta = cliente.post(f"{config.base_url}/generate", data=corpo)
+            resposta.raise_for_status()
+            return resposta.content
+    except httpx.HTTPStatusError as erro:
+        motivo = erro.response.text.strip()
+        raise ErroBase(f"a base recusou a geracao: {motivo}") from erro
+    except httpx.HTTPError as erro:
+        raise ErroBase(f"falha ao falar com a base: {erro}") from erro

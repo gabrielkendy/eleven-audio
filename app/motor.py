@@ -1,19 +1,14 @@
 from __future__ import annotations
 
 import math
-import re
 import struct
 import time
 import wave
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from unicodedata import normalize
 
-
-def _sanitizar_nome(valor: str) -> str:
-    ascii_puro = normalize("NFKD", valor).encode("ascii", "ignore").decode("ascii")
-    return re.sub(r"[^a-zA-Z0-9_-]+", "-", ascii_puro).strip("-") or "sem-perfil"
+from app import base, saidas
+from app.config import Configuracao
 
 
 def sintetizar(
@@ -22,19 +17,46 @@ def sintetizar(
     motor: str,
     pasta_saida: Path,
     perfil_id: str | None = None,
+    config: Configuracao | None = None,
+    idioma: str = "pt",
+    velocidade: float = 1.0,
+    semente: int | None = None,
 ) -> dict[str, Any]:
-    if motor != "mock":
-        raise ValueError("A FATIA 0 aceita somente o motor mock")
     if not texto.strip():
         raise ValueError("O texto do teste nao pode estar vazio")
 
     inicio = time.perf_counter()
-    pasta_saida.mkdir(parents=True, exist_ok=True)
+    arquivo = saidas.pasta_do_dia(pasta_saida) / saidas.nome_arquivo(
+        motor, perfil_id
+    )
+
+    if motor != "mock":
+        if config is None:
+            raise ValueError("configuracao obrigatoria para motor real")
+        saidas.gravar_bytes(
+            arquivo,
+            base.gerar_audio(
+                config,
+                texto=texto,
+                motor=motor,
+                perfil_id=perfil_id,
+                idioma=idioma,
+                velocidade=velocidade,
+                semente=semente,
+            ),
+        )
+        medicao = saidas.medir(arquivo)
+        return {
+            "arquivo": str(arquivo),
+            "duracao_audio_s": medicao["duracao_audio_s"],
+            "duracao_geracao_s": round(time.perf_counter() - inicio, 6),
+            "motor": motor,
+            "dispositivo": "cuda",
+            "tamanho_bytes": medicao["tamanho_bytes"],
+        }
+
     taxa = 24_000
     quantidade_quadros = int(taxa * max(0.6, min(30.0, len(texto) / 14.0)))
-    perfil = _sanitizar_nome(perfil_id or "sem-perfil")
-    carimbo = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d_%H%M%S")
-    arquivo = pasta_saida / f"{carimbo}_mock_{perfil}.wav"
 
     with wave.open(str(arquivo), "wb") as wav:
         wav.setnchannels(1)
