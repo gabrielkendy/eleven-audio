@@ -42,8 +42,9 @@ window.AREAS.push({
 
     let config = null;
     let saude = null;
+    let estado = null;
     try {
-      [config, saude] = await Promise.all([ler("/api/config"), ler("/api/saude")]);
+      [config, saude, estado] = await Promise.all([ler("/api/config"), ler("/api/saude"), ler("/api/estado")]);
     } catch (erro) {
       console.warn("Configuracao indisponivel", erro);
     }
@@ -51,11 +52,11 @@ window.AREAS.push({
     const campos = [
       ["Porta do app", config?.porta || 7800],
       ["Porta da base", config?.porta_base || 3900],
-      ["Pasta de saidas", config?.saidas || config?.pasta_saidas || "saidas/audio"],
+      ["Pasta de saidas", estado?.pasta_saidas || config?.saidas || config?.pasta_saidas || "saidas/audio"],
       ["Pasta de dados", config?.dados || config?.pasta_dados || "dados"],
       ["Espaco livre", saude?.disco_livre_gb == null ? "indisponivel" : `${saude.disco_livre_gb} GB`],
-      ["Estado da base", saude?.base || "indisponivel"],
-      ["Motor ativo", config?.motor || saude?.motor_ativo || "indisponivel"],
+      ["Estado da base", saude?.base || estado?.base || "indisponivel"],
+      ["Motor ativo", estado?.motor_ativo || config?.motor || saude?.motor_ativo || "indisponivel"],
     ];
     const grade = raiz.querySelector(".config-grade");
     for (const [nome, valor] of campos) {

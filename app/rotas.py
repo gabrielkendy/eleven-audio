@@ -200,6 +200,23 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
                 item["audio_url"] = f"/saidas/{arquivo.relative_to(config.saidas).as_posix()}"
         return registros
 
+    @rotas.post("/saidas/abrir")
+    def abrir_saidas() -> dict[str, str]:
+        """Abre a pasta de saidas no explorador do sistema, para achar o audio na hora."""
+        import os
+        import subprocess
+        import sys
+
+        destino = config.saidas.resolve()
+        destino.mkdir(parents=True, exist_ok=True)
+        if sys.platform.startswith("win"):
+            os.startfile(destino)
+        elif sys.platform == "darwin":
+            subprocess.run(["open", str(destino)], check=False)
+        else:
+            subprocess.run(["xdg-open", str(destino)], check=False)
+        return {"aberto": str(destino)}
+
     @rotas.get("/estado")
     def estado() -> dict[str, Any]:
         banco = _abrir_cofre(config)
