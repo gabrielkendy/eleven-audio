@@ -34,7 +34,7 @@
 .config-abrir {
   width: 100%;
   min-height: 52px;
-  background: linear-gradient(135deg, var(--acento), #2a3fd6);
+  background: linear-gradient(135deg, var(--acento), var(--acento-claro));
   border: 0;
   color: #fff;
   font-weight: 600;
@@ -57,3 +57,11 @@
 .config-lista-licencas { display: grid; gap: 10px; margin-bottom: 14px; }
 .config-lista-licencas p { color: var(--texto-fraco); }
 .config-lista-licencas strong { color: var(--texto); }
+
+.tema-opcoes { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.tema-opcoes button[aria-pressed="true"] {
+  border-color: var(--acento);
+  background: var(--acento);
+  color: #fff;
+}
