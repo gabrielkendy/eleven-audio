@@ -1,4 +1,26 @@
 const ORDEM_PADRAO = ["gerar", "clonar", "comparar", "desenhar", "transcrever", "agente", "config"];
+const TEMAS = ["estudio", "papel"];
+
+function definirTema(nome) {
+  const tema = TEMAS.includes(nome) ? nome : "estudio";
+  document.documentElement.dataset.tema = tema;
+  document.querySelectorAll("[data-tema-opcao]").forEach((botao) => {
+    botao.setAttribute("aria-pressed", String(botao.dataset.temaOpcao === tema));
+  });
+  try {
+    localStorage.setItem("estudio:tema", tema);
+  } catch (_) {
+    // O tema ainda funciona quando o navegador bloqueia armazenamento local.
+  }
+  return tema;
+}
+
+window.definirTema = definirTema;
+try {
+  definirTema(localStorage.getItem("estudio:tema"));
+} catch (_) {
+  definirTema("estudio");
+}
 
 function listaDeAreas() {
   const bruto = window.AREAS || {};
@@ -25,11 +47,30 @@ function listaDeAreas() {
   return itens.sort((a, b) => posicao(a) - posicao(b));
 }
 
+function montarSeletorTema() {
+  const area = document.querySelector("#config");
+  if (!area || area.querySelector("[data-seletor-tema]")) return;
+  const seletor = document.createElement("section");
+  seletor.className = "config-licencas";
+  seletor.dataset.seletorTema = "";
+  seletor.innerHTML = `<h3>APARÊNCIA</h3><div class="tema-opcoes">
+    <button type="button" data-tema-opcao="estudio">Estúdio</button>
+    <button type="button" data-tema-opcao="papel">Papel</button>
+  </div>`;
+  seletor.addEventListener("click", (evento) => {
+    const botao = evento.target.closest("[data-tema-opcao]");
+    if (botao) definirTema(botao.dataset.temaOpcao);
+  });
+  area.prepend(seletor);
+  definirTema(document.documentElement.dataset.tema);
+}
+
 function montarAreas() {
   const areas = listaDeAreas();
   const navegacao = document.querySelector("#navegacao");
   const destino = document.querySelector("#areas");
   const titulo = document.querySelector("#titulo-area");
+  const sanfona = document.querySelector("#sanfona");
 
   // Seguro por construcao: titulo e html vem apenas dos nossos proprios arquivos web/*.js,
   // nunca de dado do usuario nem de resposta da base. Texto que vem de fora entra por textContent.
@@ -41,6 +82,7 @@ function montarAreas() {
     .join("");
 
   areas.forEach((area) => area.montar?.(document.querySelector(`#${area.id}`)));
+  montarSeletorTema();
 
   const mostrar = (id) => {
     const area = areas.find((item) => item.id === id);
@@ -51,11 +93,20 @@ function montarAreas() {
     if (titulo && area) titulo.textContent = area.titulo || area.id;
     document.title = `${area?.titulo || "Estúdio"} · Estúdio de Voz Local`;
     window.dispatchEvent(new CustomEvent("estudio:area-visivel", { detail: { id } }));
+    if (matchMedia("(max-width: 900px)").matches) {
+      document.body.classList.remove("menu-aberto");
+      sanfona?.setAttribute("aria-expanded", "false");
+    }
   };
 
   navegacao.addEventListener("click", (evento) => {
     const botao = evento.target.closest("button[data-alvo]");
     if (botao) mostrar(botao.dataset.alvo);
+  });
+
+  sanfona?.addEventListener("click", () => {
+    const aberto = document.body.classList.toggle("menu-aberto");
+    sanfona.setAttribute("aria-expanded", String(aberto));
   });
 
   if (areas[0]) mostrar(areas[0].id);

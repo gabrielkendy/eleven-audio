@@ -79,6 +79,19 @@ def test_app_js_monta_as_duas_formas_de_registro_e_respeita_a_ordem() -> None:
         assert f'"{area}"' in js, f"app.js nao conhece a area {area}"
 
 
+def test_casca_expoe_os_dois_temas_e_o_contrato_visual() -> None:
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    css = (WEB / "estilo.css").read_text(encoding="utf-8")
+    js = (WEB / "app.js").read_text(encoding="utf-8")
+
+    assert 'data-tema="estudio"' in html
+    assert '[data-tema="papel"]' in css
+    classes = ["compositor", "rail", "pilulas", "chip", "duplo", "player", "solte", "vazio", "aviso", "grade-cartoes"]
+    for classe in classes:
+        assert f".{classe}" in css, f"estilo.css nao define .{classe}"
+    assert "estudio:tema" in js
+
+
 def test_todo_javascript_da_tela_tem_sintaxe_valida() -> None:
     """Um erro de sintaxe em qualquer area derruba a tela inteira em silencio. Este teste pega isso."""
     node = shutil.which("node")
