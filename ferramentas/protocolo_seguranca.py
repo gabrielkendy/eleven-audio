@@ -60,8 +60,11 @@ class Achado:
 
 def varrer_codigo(raiz: Path, extensoes=EXTENSOES_CODIGO):
     """Percorre o projeto devolvendo (caminho_relativo, numero_da_linha, texto)."""
+    proprio_scanner = Path(__file__).resolve()
     for caminho in sorted(raiz.rglob("*")):
         if not caminho.is_file():
+            continue
+        if caminho.resolve() == proprio_scanner:
             continue
         if any(parte in ARQUIVOS_IGNORADOS for parte in caminho.parts):
             continue
