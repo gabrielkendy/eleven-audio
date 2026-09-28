@@ -29,6 +29,11 @@ MOTORES_BLOQUEADOS = {
 NAO_VERIFICADO = "ainda não verificado quanto ao tamanho da amostra"
 NAO_CLONA = "não clona voz"
 
+# Medido em 28/09/2026: o Chatterbox PT-BR recebeu uma amostra de 75 s e gerou
+# audio normalmente, sem recusar. Nao isolamos quanto da amostra ele aproveita,
+# entao a frase diz o que foi observado e nao mais do que isso.
+CHATTERBOX_REFERENCIA = "aceitou amostra de 75 s no teste"
+
 
 def _uso_da_referencia(estrategia: Any, limite: Any, clonagem: bool = True) -> str:
     if not clonagem:
@@ -65,7 +70,7 @@ def _motores(config: Configuracao, base_no_ar: bool) -> list[dict[str, Any]]:
         motores.append({"id": "chatterbox-ptbr", "nome": "Chatterbox V3 · Português do Brasil",
                         "disponivel": True, "motivo": None, "idiomas": ["pt"],
                         "clonagem": True, "limite_referencia_s": None,
-                        "uso_da_referencia": NAO_VERIFICADO,
+                        "uso_da_referencia": CHATTERBOX_REFERENCIA,
                         "dispositivo": "auto · CUDA ou CPU"})
     if not base_no_ar:
         for identificador in ("omnivoice", "voxcpm2"):
