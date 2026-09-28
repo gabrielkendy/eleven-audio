@@ -236,12 +236,17 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
         finally:
             banco.fechar()
         relativo = arquivo.relative_to(config.saidas).as_posix()
+        # O resumo tem que descrever o que a base REALMENTE recebeu, nao so o que
+        # veio da tela. Como montar_corpo sempre injeta os padroes fieis, resumir
+        # apenas os ajustes pedidos dira "padrao do motor" enquanto a saida vai
+        # crua, e a tela passa a mentir sobre o proprio audio.
+        ajustes_efetivos = {**base.PADROES_FIEIS, **ajustes_pedidos}
         return {
             **resultado,
             "geracao_id": identificador,
             "audio_url": f"/saidas/{relativo}",
-            "ajustes": ajustes_pedidos,
-            "resumo_ajustes": ajustes_de_qualidade.resumo(ajustes_pedidos, velocidade),
+            "ajustes": ajustes_efetivos,
+            "resumo_ajustes": ajustes_de_qualidade.resumo(ajustes_efetivos, velocidade),
         }
 
     @rotas.get("/gerar/{geracao_id}")

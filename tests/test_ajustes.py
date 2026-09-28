@@ -133,10 +133,33 @@ def test_rota_gerar_aceita_ajustes_e_devolve_resumo(tmp_path: Path) -> None:
 
     assert resposta.status_code == 200
     corpo = resposta.json()
-    assert corpo["ajustes"] == {"effect_preset": "podcast", "num_step": "32"}
+    # O ajuste pedido vence, e os padroes fieis aparecem junto: o resumo descreve
+    # o que a base recebe, nao so o que a tela mandou.
+    assert corpo["ajustes"]["effect_preset"] == "podcast"
+    assert corpo["ajustes"]["num_step"] == "32"
+    assert corpo["ajustes"]["denoise"] == "false"
     assert "podcast" in corpo["resumo_ajustes"]
+    assert "limpeza de ruído" in corpo["resumo_ajustes"]
     with wave.open(corpo["arquivo"], "rb") as leitor:
         assert leitor.getframerate() == 24_000
+
+
+def test_resumo_descreve_a_saida_crua_quando_nao_ha_ajuste(tmp_path: Path) -> None:
+    """Regressao: sem ajuste na tela, o resumo dizia "padrao do motor" e mentia.
+
+    A base recebe effect_preset=raw e denoise=false sempre, entao o resumo tem que
+    dizer saida crua, senao a tela esconde do usuario o que foi feito com o audio.
+    """
+    cliente = _cliente(tmp_path)
+
+    resposta = cliente.post("/api/gerar", json={"texto": "teste curto", "motor": "mock"})
+
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["ajustes"]["effect_preset"] == "raw"
+    assert corpo["ajustes"]["denoise"] == "false"
+    assert corpo["resumo_ajustes"] != "padrão do motor"
+    assert "raw" in corpo["resumo_ajustes"]
 
 
 def test_rota_gerar_recusa_ajuste_invalido(tmp_path: Path) -> None:
