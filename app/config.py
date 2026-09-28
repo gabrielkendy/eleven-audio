@@ -14,6 +14,7 @@ class Configuracao:
     saidas: Path
     base_url: str
     timeout_s: float
+    preparo: bool
 
 
 def _caminho(valor: str, raiz: Path) -> Path:
@@ -44,4 +45,8 @@ def carregar_config(
         saidas=_caminho(env.get("ESTUDIO_SAIDAS", "saidas/audio"), raiz_projeto),
         base_url=env.get("ESTUDIO_BASE_URL", "http://127.0.0.1:3900").rstrip("/"),
         timeout_s=timeout_s,
+        # Preparar a referencia (cortar silencio das pontas e acertar o nivel) e
+        # o padrao. A chave existe para poder comparar com e sem, e para servir
+        # de saida de emergencia se algum motor estranhar o arquivo preparado.
+        preparo=env.get("ESTUDIO_PREPARO", "1").strip().lower() not in {"0", "false", "nao", "off"},
     )

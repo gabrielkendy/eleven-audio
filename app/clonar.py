@@ -3,10 +3,12 @@ from __future__ import annotations
 import contextlib
 import uuid
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 
 import httpx
 
+from app import preparo
 from app.cofre import abrir
 from app.config import Configuracao
 from app.saidas import medir_duracao
@@ -84,7 +86,7 @@ def criar_perfil(
     origem_voz: str,
     aceite_consentimento: bool,
     cliente: httpx.Client | None = None,
-) -> dict[str, str]:
+) -> dict[str, Any]:
     nome = nome.strip()
     transcricao = transcricao.strip()
     if not aceite_consentimento:
@@ -101,6 +103,10 @@ def criar_perfil(
     destino.parent.mkdir(parents=True, exist_ok=True)
     destino.write_bytes(conteudo)
     perfil_base_id: str | None = None
+    # Declarados antes do try: a limpeza no except precisa deles mesmo quando a
+    # validacao recusa a amostra antes de qualquer preparacao acontecer.
+    audio_para_base = destino
+    preparado: dict[str, object] | None = None
     try:
         try:
             duracao = medir_duracao(destino)
@@ -108,12 +114,31 @@ def criar_perfil(
             raise ErroClonagem(f"Nao foi possivel medir o clipe: {erro}") from erro
         validar_duracao(duracao)
 
+        # Prepara a amostra antes de entregar para a base: corta silencio das
+        # pontas e acerta o nivel. Isso ajuda principalmente os motores que usam
+        # os primeiros segundos da amostra, porque o comeco deixa de ser silencio.
+        #
+        # Nao reordena nada e nao corta fala, entao a transcricao continua
+        # valendo para o audio que a base recebe.
+        if config.preparo:
+            try:
+                preparado = preparo.preparar(
+                    destino,
+                    destino.with_name(f"{destino.stem}-preparado{destino.suffix}"),
+                    limite_s=DURACAO_MAXIMA_S,
+                )
+                audio_para_base = Path(str(preparado["arquivo_preparado"]))
+            except preparo.ErroPreparo:
+                # Se a preparacao falhar, a clonagem segue com o arquivo original.
+                # Preparar e uma melhoria, nao um requisito.
+                preparado = None
+
         with _sessao(config, cliente) as base:
             if not transcricao:
-                with destino.open("rb") as audio:
+                with audio_para_base.open("rb") as audio:
                     resposta = base.post(
                         "/transcribe",
-                        files={"audio": (destino.name, audio, "application/octet-stream")},
+                        files={"audio": (audio_para_base.name, audio, "application/octet-stream")},
                         data={"language": "pt", "mode": "reference"},
                     )
                 _confirmar(resposta)
@@ -122,10 +147,10 @@ def criar_perfil(
                 if not transcricao:
                     raise ErroClonagem("A base nao devolveu texto para a transcricao.", 502)
 
-            with destino.open("rb") as audio:
+            with audio_para_base.open("rb") as audio:
                 resposta = base.post(
                     "/profiles",
-                    files={"ref_audio": (destino.name, audio, "application/octet-stream")},
+                    files={"ref_audio": (audio_para_base.name, audio, "application/octet-stream")},
                     data={
                         "name": nome,
                         "ref_text": transcricao,
@@ -139,10 +164,10 @@ def criar_perfil(
             if not perfil_base_id:
                 raise ErroClonagem("A base criou o perfil sem devolver o identificador.", 502)
 
-            with destino.open("rb") as audio:
+            with audio_para_base.open("rb") as audio:
                 resposta = base.post(
                     f"/profiles/{quote(perfil_base_id, safe='')}/consent",
-                    files={"consent_audio": (destino.name, audio, "application/octet-stream")},
+                    files={"consent_audio": (audio_para_base.name, audio, "application/octet-stream")},
                     data={"consent_text": AVISO_CONSENTIMENTO},
                 )
             _confirmar(resposta)
@@ -164,8 +189,25 @@ def criar_perfil(
             )
         finally:
             cofre.fechar()
-        return {"perfil_id": perfil_id, "id_na_base": perfil_base_id, "aviso": AVISO_CONSENTIMENTO}
+        if preparado and audio_para_base != destino:
+            audio_para_base.unlink(missing_ok=True)
+        resposta_final: dict[str, object] = {
+            "perfil_id": perfil_id,
+            "id_na_base": perfil_base_id,
+            "aviso": AVISO_CONSENTIMENTO,
+        }
+        if preparado and float(preparado.get("duracao_s", 0) or 0) > 0:
+            resposta_final["preparo"] = {
+                "duracao_original_s": preparado["duracao_s"],
+                "duracao_enviada_s": preparado["janela_s"],
+                "fala_pct": preparado["fala_pct"],
+                "ganho_aplicado_db": preparado.get("ganho_aplicado_db"),
+                "explicacao": "Silencio das pontas cortado e nivel acertado antes de enviar para o motor.",
+            }
+        return resposta_final
     except Exception:
+        if preparado and audio_para_base != destino:
+            audio_para_base.unlink(missing_ok=True)
         if perfil_base_id:
             try:
                 with _sessao(config, cliente) as base:

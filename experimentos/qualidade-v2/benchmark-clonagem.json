@@ -1,0 +1,28 @@
+{
+  "perfil": "vz-8a79c8ca58b9",
+  "texto": "Hoje eu testei a clonagem de voz com calma, ouvindo cada detalhe, para escolher o motor que mais parece com a minha voz.",
+  "semente": 2026,
+  "resultados": [
+    {
+      "motor": "omnivoice",
+      "arquivo": "saidas/audio/2026-09-28/2026-09-28_103136_omnivoice_b66deb76.wav",
+      "duracao_audio_s": 9.16,
+      "duracao_geracao_s": 15.929173,
+      "dispositivo": "nao_informado"
+    },
+    {
+      "motor": "voxcpm2",
+      "arquivo": "saidas/audio/2026-09-28/2026-09-28_103154_voxcpm2_b66deb76.wav",
+      "duracao_audio_s": 7.04,
+      "duracao_geracao_s": 49.763487,
+      "dispositivo": "nao_informado"
+    },
+    {
+      "motor": "chatterbox-ptbr",
+      "arquivo": "saidas/audio/2026-09-28/chatterbox_ptbr_e09b3e2eb64b.wav",
+      "duracao_audio_s": 10.16,
+      "duracao_geracao_s": 90.123892,
+      "dispositivo": "cpu"
+    }
+  ]
+}

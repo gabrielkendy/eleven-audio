@@ -94,6 +94,7 @@ def _cliente(tmp_path: Path, disponivel: bool = True) -> tuple[TestClient, Threa
         saidas=tmp_path / "saidas" / "audio",
         base_url=f"http://127.0.0.1:{base.server_address[1]}",
         timeout_s=5,
+        preparo=True,
     )
     app = FastAPI()
     app.include_router(criar_router(config))

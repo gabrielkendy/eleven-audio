@@ -7,13 +7,17 @@ import subprocess
 import sys
 from pathlib import Path
 
+# A amostra aceita vai ate 3 minutos (ver app/clonar.py). O diagnostico precisa
+# cobrir o arquivo inteiro, senao ele mede so o comeco e mente sobre o resto.
+TETO_ANALISE_S = 200
+
 
 def diagnosticar(arquivo: Path) -> dict[str, object]:
-    """Decodifica no máximo 31s sem alterar o original. Mesmas unidades para todos formatos."""
+    """Decodifica a amostra inteira sem alterar o original. Mesmas unidades para todos formatos."""
     processo = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(arquivo), "-t", "31", "-ac", "1",
+        ["ffmpeg", "-v", "error", "-i", str(arquivo), "-t", str(TETO_ANALISE_S), "-ac", "1",
          "-ar", "16000", "-f", "f32le", "pipe:1"],
-        capture_output=True, timeout=30, check=False,
+        capture_output=True, timeout=120, check=False,
     )
     if processo.returncode or not processo.stdout:
         raise ValueError("Não foi possível analisar a referência de áudio.")
@@ -40,8 +44,12 @@ def diagnosticar(arquivo: Path) -> dict[str, object]:
     if baixo_percentual > 35:
         avisos.append("Muitas janelas de volume baixo. Confira pausas longas e voz distante.")
     duration = len(amostras) / 16000
-    if duration > 20:
-        avisos.append("Esta amostra passa de 20 s. O motor pode usar apenas um trecho e realinhar o texto.")
+    if duration > 30:
+        avisos.append(
+            "Amostra longa. Isso é bom: cada motor aproveita uma janela diferente "
+            "(a de 20 s do OmniVoice ou os primeiros 30 s do VoxCPM2) e quanto mais "
+            "material, melhor a escolha. Confira o que cada motor usa na aba Configuração."
+        )
     step = max(1, len(amostras) // 48)
     onda = [round(max(abs(x) for x in amostras[i:i + step]), 5)
             for i in range(0, len(amostras), step)][:48]

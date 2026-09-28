@@ -216,6 +216,11 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
             raise HTTPException(502, f"erro da base: {erro}") from erro
         arquivo = Path(resultado["arquivo"])
         resultado.update(saidas.medir(arquivo))
+        # O dispositivo real da inferencia nao volta na resposta em bytes, entao
+        # "dispositivo" segue como nao_informado, sem inventar. O que da para
+        # afirmar e a rota que a base declara para este motor, e isso vai num
+        # campo separado, com nome que nao promete mais do que e.
+        resultado["dispositivo_base"] = encontrado.get("dispositivo")
         banco = _abrir_cofre(config)
         try:
             identificador = banco.registrar_geracao(

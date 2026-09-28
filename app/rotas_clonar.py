@@ -4,6 +4,7 @@ from email.parser import BytesParser
 from email.policy import default
 from pathlib import Path
 from subprocess import TimeoutExpired
+from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -79,7 +80,7 @@ def _cliente(request: Request) -> httpx.Client | None:
 
 
 @router.post("/api/clonar")
-async def clonar(request: Request) -> dict[str, str]:
+async def clonar(request: Request) -> dict[str, Any]:
     campos, nome_arquivo, conteudo = await _multipart(request)
     try:
         return criar_perfil(

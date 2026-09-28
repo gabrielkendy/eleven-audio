@@ -1,5 +1,8 @@
 # Modelos que dá para instalar
 
+> Para o foco específico de qualidade de clonagem, com ranking medido nesta
+> máquina, veja também `docs/CLONAGEM-ALTO-NIVEL.md`.
+
 Análise dos motores de voz que a base oferece mas que ainda não estão instalados
 nesta máquina, feita para responder a uma pergunta prática: quais deles valem a
 pena para um estúdio que fala português do Brasil e roda numa RTX 4080 de 16 GB.
