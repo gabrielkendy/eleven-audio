@@ -81,12 +81,18 @@ Frase para o aluno: **quase todo o trabalho pesado já está pronto. O trabalho 
 
 Regra do clipe de referência (o que a pessoa precisa gravar):
 
-| Situação | O que a base aceita | O que a gente recomenda na tela |
+| Situação | O que foi medido | O que a gente recomenda na tela |
 |---|---|---|
+| Faixa aceita pela tela | de 5 s a 3 minutos (180 s), com teto de 150 MB por envio | mandar de 1 a 3 minutos quando tiver material bom |
 | Clipe ideal | de 5 a 15 segundos de fala limpa | 10 segundos, uma frase inteira, sem música e sem ruído |
-| Teto do motor padrão | até 20 s com transcrição, janela de 15 s sem transcript | clipe de 10 a 15 s |
-| Teto do VoxCPM2 | primeiros 30 s depois de cortar o silêncio | 15 a 30 s |
-| Teto bruto da tela | 75 s (a base recusa acima disso) | nunca passar de 30 s: acima disso o motor corta e a transcrição deixa de casar |
+| OmniVoice (padrão) | aproveita a melhor janela de 20 s da amostra | amostra longa dá mais material para ele escolher a janela |
+| VoxCPM2 | aproveita os primeiros 30 s, depois de cortar o silêncio | se for usar este motor, deixe a melhor fala no começo |
+| Teto bruto | 180 s passaram em teste real de ponta a ponta | quem corta é o motor, não a tela |
+
+Medição de 28/09/2026, feita na máquina do projeto: amostras de 60 s e de 180 s
+foram aceitas de ponta a ponta, criaram perfil na base e geraram áudio. Uma de
+210 s foi recusada pela própria tela, como esperado. A leitura anterior deste
+documento, de que "a base recusa acima de 75 s", não se confirmou no teste.
 
 ---
 

@@ -15,11 +15,38 @@ AVISO_CONSENTIMENTO = """Antes de clonar, confirme: esta voz e sua, ou voce tem 
 Clonar voz de terceiro sem autorizacao e ilegal e antiético.
 O audio que voce gerar e seu, mas cada motor tem licenca propria. Leia antes de uso comercial."""
 
+# Limites da amostra de referencia, em segundos. Fonte unica: a tela le estes
+# numeros de /api/estado, entao backend e front nao podem divergir.
+#
+# O teto e 3 minutos de proposito. Cada motor aproveita um pedaco diferente da
+# amostra (ver UsoDaReferencia em app/rotas.py), e amostra maior da mais material
+# para o motor escolher. Quem corta e o motor, nao nos.
+DURACAO_MINIMA_S = 5.0
+DURACAO_MAXIMA_S = 180.0
+
+
+def descricao_limites() -> str:
+    """Texto humano dos limites, reaproveitado nas mensagens de erro."""
+    return f"de {DURACAO_MINIMA_S:.0f} segundos a {DURACAO_MAXIMA_S / 60:.0f} minutos"
+
 
 class ErroClonagem(Exception):
     def __init__(self, mensagem: str, status: int = 400) -> None:
         super().__init__(mensagem)
         self.status = status
+
+
+def validar_duracao(duracao: float) -> None:
+    """Recusa amostra fora da faixa aceita.
+
+    Fica separado do fluxo para poder ser testado sem gerar audio de 3 minutos.
+    """
+    if not DURACAO_MINIMA_S <= duracao <= DURACAO_MAXIMA_S:
+        raise ErroClonagem(
+            f"O clipe deve ter {descricao_limites()}, com uma só voz e sem música. "
+            f"Duração medida: {duracao:.2f} s.",
+            400,
+        )
 
 
 def _sessao(config: Configuracao, cliente: httpx.Client | None):
@@ -79,12 +106,7 @@ def criar_perfil(
             duracao = medir_duracao(destino)
         except (OSError, ValueError, RuntimeError) as erro:
             raise ErroClonagem(f"Nao foi possivel medir o clipe: {erro}") from erro
-        if not 5 <= duracao <= 30:
-            raise ErroClonagem(
-                f"O clipe deve ter de 5 a 30 segundos, com uma só voz e sem música. "
-                f"Duracao medida: {duracao:.2f} s.",
-                400,
-            )
+        validar_duracao(duracao)
 
         with _sessao(config, cliente) as base:
             if not transcricao:

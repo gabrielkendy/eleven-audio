@@ -75,7 +75,7 @@ Estados exatos que a faixa de geração precisa cobrir:
 | Componente | Comportamento | Endpoint |
 |---|---|---|
 | Nome do perfil | obrigatório, de 1 a 60 caracteres | nenhum até clonar |
-| Entrada de clipe | subir arquivo ou gravar pelo microfone, com dica de 5 a 15 segundos | nenhum até clonar |
+| Entrada de clipe | subir arquivo ou gravar pelo microfone; aceita de 5 s a 3 min e sugere de 5 a 15 s | nenhum até clonar |
 | Medidor do clipe | mostra a duração do arquivo escolhido e avisa se estiver fora da faixa | leitura local do arquivo |
 | Campo de transcrição | opcional para a pessoa, obrigatório no nosso fluxo (a gente transcreve se ficar vazio) | `POST /api/transcrever` quando vazio |
 | Aviso de consentimento | bloqueia o botão até responder (própria ou autorizada) | `POST /api/clonar` |

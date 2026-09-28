@@ -17,6 +17,12 @@ from app.referencia import diagnosticar
 
 router = APIRouter()
 
+# A amostra pode ter ate 3 minutos (ver app/clonar.py). Em WAV sem compressao,
+# 3 minutos em 48 kHz, 24 bits e dois canais passam de 50 MB, que era o teto
+# antigo. O limite aqui e so uma trava de sanidade contra envio absurdo.
+LIMITE_UPLOAD_BYTES = 150 * 1024 * 1024
+LIMITE_UPLOAD_MB = LIMITE_UPLOAD_BYTES // (1024 * 1024)
+
 
 def _texto_do_campo(parte, dados: bytes) -> str:
     """Decodifica o campo sem derrubar a requisicao.
@@ -40,11 +46,11 @@ async def _multipart(request: Request) -> tuple[dict[str, str], str, bytes]:
     tipo = request.headers.get("content-type", "")
     if not tipo.startswith("multipart/form-data"):
         raise HTTPException(400, "Envie os campos como multipart/form-data.")
-    if int(request.headers.get("content-length", "0") or 0) > 50 * 1024 * 1024:
-        raise HTTPException(413, "O clipe excede o limite de 50 MB.")
+    if int(request.headers.get("content-length", "0") or 0) > LIMITE_UPLOAD_BYTES:
+        raise HTTPException(413, f"O clipe excede o limite de {LIMITE_UPLOAD_MB} MB.")
     corpo = await request.body()
-    if len(corpo) > 50 * 1024 * 1024:
-        raise HTTPException(413, "O clipe excede o limite de 50 MB.")
+    if len(corpo) > LIMITE_UPLOAD_BYTES:
+        raise HTTPException(413, f"O clipe excede o limite de {LIMITE_UPLOAD_MB} MB.")
     mensagem = BytesParser(policy=default).parsebytes(
         f"Content-Type: {tipo}\r\nMIME-Version: 1.0\r\n\r\n".encode() + corpo
     )

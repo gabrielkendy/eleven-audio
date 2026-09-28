@@ -9,11 +9,12 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query
 
 from app import ajustes as ajustes_de_qualidade
-from app import base, cofre, marcas, saidas
+from app import base, clonar, cofre, marcas, saidas
 from app.chatterbox_local import disponivel as chatterbox_disponivel
 from app.chatterbox_local import sintetizar_chatterbox
 from app.config import Configuracao
 from app.motor import sintetizar
+from app.rotas_clonar import LIMITE_UPLOAD_MB
 
 MOTORES_BLOQUEADOS = {
     # A base anuncia este sidecar como disponível, mas a execução real falha
@@ -21,6 +22,25 @@ MOTORES_BLOQUEADOS = {
     # base: só impedimos que o adaptador direcione o usuário a uma rota quebrada.
     "omnivoice-subprocess": "Ambiente isolado incompleto. Use OmniVoice direto até este motor ser reparado.",
 }
+
+# Como cada motor consome a amostra de referencia. A base informa o tamanho do
+# pedaco que aproveita em max_ref_seconds e a forma em ref_strategy. Quando nao
+# informa, dizemos que nao foi verificado, em vez de supor.
+NAO_VERIFICADO = "ainda não verificado quanto ao tamanho da amostra"
+NAO_CLONA = "não clona voz"
+
+
+def _uso_da_referencia(estrategia: Any, limite: Any, clonagem: bool = True) -> str:
+    if not clonagem:
+        return NAO_CLONA
+    segundos = float(limite) if isinstance(limite, (int, float)) and float(limite) > 0 else None
+    if estrategia == "best_window" and segundos:
+        return f"usa a melhor janela de {segundos:.0f} s da amostra"
+    if estrategia == "head" and segundos:
+        return f"usa os primeiros {segundos:.0f} s da amostra"
+    if estrategia == "full":
+        return "usa a amostra inteira"
+    return NAO_VERIFICADO
 
 
 def _abrir_cofre(config: Configuracao) -> cofre.Cofre:
@@ -37,13 +57,15 @@ def _motores(config: Configuracao, base_no_ar: bool) -> list[dict[str, Any]]:
             "idiomas": ["pt"],
             "clonagem": False,
             "limite_referencia_s": None,
+            "uso_da_referencia": NAO_CLONA,
             "dispositivo": "cpu",
         }
     ]
     if chatterbox_disponivel():
         motores.append({"id": "chatterbox-ptbr", "nome": "Chatterbox V3 · Português do Brasil",
                         "disponivel": True, "motivo": None, "idiomas": ["pt"],
-                        "clonagem": True, "limite_referencia_s": 30,
+                        "clonagem": True, "limite_referencia_s": None,
+                        "uso_da_referencia": NAO_VERIFICADO,
                         "dispositivo": "auto · CUDA ou CPU"})
     if not base_no_ar:
         for identificador in ("omnivoice", "voxcpm2"):
@@ -56,6 +78,7 @@ def _motores(config: Configuracao, base_no_ar: bool) -> list[dict[str, Any]]:
                     "idiomas": [],
                     "clonagem": True,
                     "limite_referencia_s": None,
+                    "uso_da_referencia": NAO_VERIFICADO,
                     "dispositivo": None,
                 }
             )
@@ -72,6 +95,7 @@ def _motores(config: Configuracao, base_no_ar: bool) -> list[dict[str, Any]]:
                 "idiomas": [],
                 "clonagem": True,
                 "limite_referencia_s": None,
+                "uso_da_referencia": NAO_VERIFICADO,
                 "dispositivo": None,
             }
         )
@@ -79,6 +103,7 @@ def _motores(config: Configuracao, base_no_ar: bool) -> list[dict[str, Any]]:
     for item in catalogo.get("backends", []):
         identificador = str(item["id"])
         bloqueio = MOTORES_BLOQUEADOS.get(identificador)
+        clona = bool(item.get("supports_cloning"))
         motores.append(
             {
                 "id": identificador,
@@ -86,8 +111,11 @@ def _motores(config: Configuracao, base_no_ar: bool) -> list[dict[str, Any]]:
                 "disponivel": bool(item.get("available")) and not bloqueio,
                 "motivo": bloqueio or item.get("reason") or item.get("last_error"),
                 "idiomas": item.get("supported_language_names") or [],
-                "clonagem": bool(item.get("supports_cloning")),
+                "clonagem": clona,
                 "limite_referencia_s": item.get("max_ref_seconds"),
+                "uso_da_referencia": _uso_da_referencia(
+                    item.get("ref_strategy"), item.get("max_ref_seconds"), clona
+                ),
                 "dispositivo": item.get("effective_device"),
             }
         )
@@ -281,6 +309,17 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
             "dispositivo": (escolhido or {}).get("dispositivo") or "cpu",
             "pasta_saidas": str(config.saidas),
             "tempo_ultima_geracao_s": ultima["duracao_geracao_s"] if ultima else None,
+            "limites_clonagem": {
+                "minimo_s": clonar.DURACAO_MINIMA_S,
+                "maximo_s": clonar.DURACAO_MAXIMA_S,
+                "upload_mb": LIMITE_UPLOAD_MB,
+                "descricao": clonar.descricao_limites(),
+                "uso_por_motor": {
+                    item["id"]: item["uso_da_referencia"]
+                    for item in catalogo
+                    if item.get("clonagem") and item.get("disponivel")
+                },
+            },
         }
 
     @rotas.get("/saude")

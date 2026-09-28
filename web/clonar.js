@@ -11,12 +11,13 @@ window.AREAS.push({
               <h2>Amostra</h2>
               <div class="solte" data-solte tabindex="0">
                 <strong>Solte um áudio aqui</strong>
-                <span>ou escolha um arquivo de 5 a 30 segundos</span>
+                <span data-limites-texto>ou escolha um arquivo de 5 s a 3 min</span>
                 <input name="arquivo_referencia" type="file" accept="audio/*">
               </div>
               <div class="medidor-clipe" data-medidor>
                 <span data-duracao>Nenhum clipe selecionado.</span>
-                <meter data-faixa min="0" max="30" low="5" high="30" optimum="20" value="0">0 segundos</meter>
+                <meter data-faixa min="0" max="180" low="5" high="180" optimum="180" value="0">0 segundos</meter>
+                <small data-uso-motores class="uso-motores"></small>
               </div>
               <button type="button" data-gravar>Gravar agora</button>
               <div class="player" data-player-original hidden>
@@ -87,6 +88,38 @@ window.AREAS.push({
     let clipeValido = false;
     let perfilAtual = null;
     let cronometro = null;
+    // Os limites vem de /api/estado. Os valores abaixo sao so o padrao inicial,
+    // para a tela funcionar mesmo antes da resposta chegar.
+    let limiteMin = 5;
+    let limiteMax = 180;
+
+    function rotuloLimites() {
+      const minutos = limiteMax / 60;
+      const teto = Number.isInteger(minutos) ? `${minutos} min` : `${limiteMax} s`;
+      return `de ${limiteMin} s a ${teto}`;
+    }
+
+    function aplicarLimites(limites) {
+      if (!limites) return;
+      if (Number.isFinite(limites.minimo_s)) limiteMin = limites.minimo_s;
+      if (Number.isFinite(limites.maximo_s)) limiteMax = limites.maximo_s;
+      faixa.max = limiteMax;
+      faixa.low = limiteMin;
+      faixa.high = limiteMax;
+      faixa.optimum = limiteMax;
+      const texto = raiz.querySelector("[data-limites-texto]");
+      if (texto) texto.textContent = `ou escolha um arquivo ${rotuloLimites()}`;
+      const uso = raiz.querySelector("[data-uso-motores]");
+      if (uso) {
+        const itens = Object.entries(limites.uso_por_motor || {})
+          .filter(([, descricao]) => descricao)
+          .map(([motor, descricao]) => `${motor}: ${descricao}`);
+        uso.textContent = itens.length
+          ? `Amostra maior sempre ajuda. O que cada motor aproveita — ${itens.join(" · ")}.`
+          : "";
+      }
+      if (duracaoClipe) mostrarDuracao(duracaoClipe);
+    }
 
     function mensagem(texto = "", erro = false) {
       estado.textContent = texto;
@@ -106,14 +139,14 @@ window.AREAS.push({
 
     function mostrarDuracao(segundos, gravando = false) {
       duracaoClipe = segundos;
-      faixa.value = Math.min(segundos, 30);
-      clipeValido = !gravando && segundos >= 5 && segundos <= 30;
+      faixa.value = Math.min(segundos, limiteMax);
+      clipeValido = !gravando && segundos >= limiteMin && segundos <= limiteMax;
       raiz.querySelector("[data-medidor]").classList.toggle("valido", clipeValido);
       raiz.querySelector("[data-medidor]").classList.toggle("invalido", !gravando && segundos > 0 && !clipeValido);
-      if (gravando) duracao.textContent = `Gravando: ${segundos.toFixed(1)} s. A faixa válida começa em 5 s e termina em 30 s.`;
+      if (gravando) duracao.textContent = `Gravando: ${segundos.toFixed(1)} s. A faixa válida vai ${rotuloLimites()}.`;
       else if (clipeValido) duracao.textContent = `${segundos.toFixed(2)} s medidos. Duração válida.`;
-      else if (segundos > 30) duracao.textContent = `${segundos.toFixed(2)} s medidos. O limite é 30 s. Grave ou escolha outro clipe.`;
-      else duracao.textContent = `${segundos.toFixed(2)} s medidos. O mínimo é 5 s.`;
+      else if (segundos > limiteMax) duracao.textContent = `${segundos.toFixed(2)} s medidos. O limite é ${limiteMax} s. Grave ou escolha outro clipe.`;
+      else duracao.textContent = `${segundos.toFixed(2)} s medidos. O mínimo é ${limiteMin} s.`;
     }
 
     function medirClipe(url) {
@@ -145,6 +178,7 @@ window.AREAS.push({
         raiz.querySelector("[data-perfis-vazio]").hidden = Boolean(perfis.length);
         perfis.forEach((perfil) => {
           const item = document.createElement("article");
+          item.className = "cartao-perfil";
           const nome = document.createElement("strong");
           nome.textContent = perfil.nome;
           const metadados = document.createElement("small");
@@ -239,8 +273,8 @@ window.AREAS.push({
         cronometro = setInterval(() => {
           const segundos = (performance.now() - inicio) / 1000;
           mostrarDuracao(segundos, true);
-          if (segundos > 30) {
-            mensagem("A gravação passou de 30 s e foi interrompida.", true);
+          if (segundos > limiteMax) {
+            mensagem(`A gravação passou de ${limiteMax} s e foi interrompida.`, true);
             gravador.stop();
           }
         }, 100);
@@ -271,7 +305,7 @@ window.AREAS.push({
     form.addEventListener("submit", async (evento) => {
       evento.preventDefault();
       if (!clipe) return mensagem("Escolha ou grave um clipe.", true);
-      if (!clipeValido) return mensagem(`O clipe precisa ter de 5 a 30 segundos. Duração medida: ${duracaoClipe.toFixed(2)} s.`, true);
+      if (!clipeValido) return mensagem(`O clipe precisa ter ${rotuloLimites()}. Duração medida: ${duracaoClipe.toFixed(2)} s.`, true);
       const dados = new FormData(form);
       dados.set("arquivo_referencia", clipe, clipe.name);
       criar.disabled = true;
@@ -296,6 +330,10 @@ window.AREAS.push({
     window.addEventListener("estudio:area-visivel", (evento) => {
       if (evento.detail?.id === "clonar") carregarPerfis();
     });
+    fetch("/api/estado")
+      .then((resposta) => (resposta.ok ? resposta.json() : null))
+      .then((estado) => aplicarLimites(estado?.limites_clonagem))
+      .catch(() => {});
     carregarPerfis();
   },
 });

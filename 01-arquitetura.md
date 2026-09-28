@@ -133,7 +133,7 @@ consultar `/api/gerar/<id>` em intervalos curtos.
 ### 3.2 Fluxo de clonar voz
 
 ```text
-1. Pessoa sobe um clipe de 5 a 15 segundos (ou grava na hora) e confere o aviso.
+1. Pessoa sobe um clipe de 5 s a 3 min (ou grava na hora) e confere o aviso. O ideal fica entre 5 e 15 s de fala limpa.
 2. Pessoa escolhe a origem da voz: propria ou autorizada, e aceita.
 3. A tela faz POST /api/clonar (multipart) na nossa camada.
 4. A nossa camada grava o clipe em dados\referencias\ e o consentimento no banco.

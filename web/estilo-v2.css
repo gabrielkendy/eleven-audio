@@ -362,6 +362,9 @@ details p { margin-top: 9px; color: var(--texto-fraco); font-size: 12px; overflo
 .duplo > section { min-width: 0; padding: 17px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--cartao); }
 .grade-cartoes p,
 .duplo p { margin-top: 7px; color: var(--texto-fraco); }
+.cartao-perfil { display: grid; gap: 6px; align-content: start; justify-items: start; }
+.cartao-perfil small { color: var(--texto-fraco); }
+.cartao-perfil button { margin-top: 4px; }
 
 .solte { display: grid; min-height: 160px; place-items: center; gap: 7px; padding: 24px; border: 1px dashed var(--borda-forte); border-radius: var(--raio); background: var(--painel); color: var(--texto-fraco); text-align: center; cursor: pointer; }
 .solte:hover,
@@ -370,6 +373,7 @@ details p { margin-top: 9px; color: var(--texto-fraco); font-size: 12px; overflo
 .solte input[type="file"] { max-width: 390px; background: var(--cartao); }
 .medidor-clipe { display: grid; gap: 6px; margin: 12px 0; color: var(--texto-fraco); }
 .medidor-clipe meter { width: 100%; }
+.medidor-clipe .uso-motores { display: block; margin-top: 2px; color: var(--texto-fraco); font-size: 0.78rem; line-height: 1.45; }
 .consentimento { margin: 14px 0; padding: 13px; border-radius: var(--raio-pequeno); background: var(--painel); color: var(--texto-fraco); }
 .consentimento label { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; }
 

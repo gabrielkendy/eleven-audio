@@ -6,10 +6,20 @@ import wave
 from pathlib import Path
 
 import httpx
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.clonar import AVISO_CONSENTIMENTO, apagar_perfil, criar_perfil, listar_perfis
+from app.clonar import (
+    AVISO_CONSENTIMENTO,
+    DURACAO_MAXIMA_S,
+    DURACAO_MINIMA_S,
+    ErroClonagem,
+    apagar_perfil,
+    criar_perfil,
+    listar_perfis,
+    validar_duracao,
+)
 from app.config import carregar_config
 from app.rotas_clonar import router
 
@@ -109,7 +119,58 @@ def test_cria_perfil_transcreve_grava_consentimento_e_apaga_dos_dois_lados(tmp_p
     ]
 
 
-def test_rejeita_clipe_fora_de_cinco_a_quinze_segundos(tmp_path: Path) -> None:
+def test_aceita_amostra_acima_de_trinta_segundos() -> None:
+    """A referencia pode passar de 30 s e ir ate 3 minutos.
+
+    Antes o teto era 30 s e uma amostra longa era recusada. Agora entra, porque
+    cada motor aproveita um pedaco diferente da amostra.
+    """
+    assert DURACAO_MAXIMA_S == 180.0
+    assert DURACAO_MINIMA_S == 5.0
+    for duracao in (DURACAO_MINIMA_S, 30.0, 30.1, 45.0, 60.0, 179.9, DURACAO_MAXIMA_S):
+        validar_duracao(duracao)  # nao pode levantar
+
+
+def test_rejeita_amostra_fora_da_faixa() -> None:
+    for duracao in (0.0, 4.9, 180.1, 600.0):
+        with pytest.raises(ErroClonagem) as erro:
+            validar_duracao(duracao)
+        assert erro.value.status == 400
+        assert "3 minutos" in str(erro.value)
+
+
+def test_router_cria_perfil_com_referencia_de_quarenta_e_cinco_segundos(tmp_path: Path) -> None:
+    """Ponta a ponta: 45 s de audio passam pela validacao e chegam na base."""
+
+    def base(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/profiles":
+            return httpx.Response(200, json={"id": "base-voz-longa"})
+        if request.url.path == "/profiles/base-voz-longa/consent":
+            return httpx.Response(200, json={"ok": True})
+        if request.method == "DELETE" and request.url.path == "/profiles/base-voz-longa":
+            return httpx.Response(200, json={"ok": True})
+        return httpx.Response(500, text="rota inesperada")
+
+    config = _config(tmp_path)
+    comprido = _wav(tmp_path / "longo.wav", 45)
+
+    with httpx.Client(transport=httpx.MockTransport(base), base_url=config.base_url) as cliente:
+        criado = criar_perfil(
+            config,
+            nome="Voz longa",
+            nome_arquivo="longo.wav",
+            conteudo=comprido.read_bytes(),
+            transcricao="Texto de referencia com quarenta e cinco segundos.",
+            origem_voz="propria",
+            aceite_consentimento=True,
+            cliente=cliente,
+        )
+        assert criado["id_na_base"] == "base-voz-longa"
+        assert listar_perfis(config)[0]["nome"] == "Voz longa"
+        apagar_perfil(config, criado["perfil_id"], cliente=cliente)
+
+
+def test_router_ainda_recusa_clipe_curto(tmp_path: Path) -> None:
     config = _config(tmp_path)
     app = FastAPI()
     app.state.configuracao_clonar = config
@@ -127,7 +188,7 @@ def test_rejeita_clipe_fora_de_cinco_a_quinze_segundos(tmp_path: Path) -> None:
     )
 
     assert resposta.status_code == 400
-    assert "5 a 30 segundos" in resposta.json()["detail"]
+    assert "3 minutos" in resposta.json()["detail"]
     assert listar_perfis(config) == []
 
 
