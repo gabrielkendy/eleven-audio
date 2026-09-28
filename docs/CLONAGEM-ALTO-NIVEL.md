@@ -71,7 +71,7 @@ transcrição, e transcrição que não casa com o áudio piora o clone.
 Pesquisa em fontes oficiais (HuggingFace, GitHub, papers), com foco em português
 do Brasil, 16 GB de VRAM e licença que permita uso comercial.
 
-### 1. Qwen3-TTS 1.7B (Alibaba) — o mais promissor
+### 1. Qwen3-TTS 1.7B (Alibaba) — já rodando aqui
 
 - **Licença:** Apache-2.0, no código e nos pesos. Uso comercial liberado.
 - **Português:** sim, entre os 10 idiomas.
@@ -80,10 +80,36 @@ do Brasil, 16 GB de VRAM e licença que permita uso comercial.
 - **Instalação:** `pip install qwen-tts`. Existe GGUF comunitário, também Apache-2.0.
 - **Evidência:** na tabela publicada pela própria Qwen, o português fica em 0,817
   de similaridade, à frente de MiniMax (0,805) e ElevenLabs (0,711).
-- **Estado:** não existe no VoiceStudio. Está sendo montado aqui como motor
-  isolado, no mesmo padrão do Chatterbox.
+- **Estado:** não existe no VoiceStudio, então roda como motor isolado, no mesmo
+  padrão do Chatterbox. Ambiente em `experimentos/qwen3-tts/`.
 
 Modelo: `Qwen/Qwen3-TTS-12Hz-1.7B-Base`. Paper: arXiv 2601.15621.
+Revisão fixada: `fd4b254389122332181a7c3db7f27e918eec64e3`.
+
+#### O que foi medido aqui, com a sua voz e o mesmo texto
+
+| Motor | Similaridade | Áudio gerado | Tempo de geração |
+|---|---|---|---|
+| VoxCPM2 | **0,8064** | 7,04 s | 49,8 s |
+| Qwen3-TTS sem transcrição | 0,7979 | 9,12 s | 44,4 s |
+| Qwen3-TTS com transcrição | 0,7940 | 7,84 s | 54,9 s |
+
+Leitura honesta: **estão empatados na prática.** A diferença entre 0,8064 e
+0,7979 não é grande o bastante para eleger vencedor com um texto só. Por
+segundo de áudio, o Qwen3-TTS foi até mais rápido.
+
+O achado mais útil: **a transcrição quase não muda o resultado** (0,7940 com
+contra 0,7979 sem). Isso importa muito na prática, porque destrava usar uma
+amostra de 3 minutos sem precisar transcrever os 3 minutos e sem risco de
+transcrição que não casa com o áudio. O modo sem transcrição usa só o embedding
+de locutor (`x_vector_only_mode`).
+
+O modelo está em cache local (`experimentos/qwen3-tts/model-cache`, 4,3 GB,
+ignorado pelo git). A primeira carga leva cerca de 2 minutos; a partir da
+segunda, 8 segundos.
+
+Pedidos prontos: `experimentos/qwen3-tts/pedido-com-texto.json` e
+`pedido-sem-texto.json`. Runner: `experimentos/qwen3-tts/runner.py`.
 
 ### 2. VoxCPM2 — já roda aqui
 
@@ -118,11 +144,30 @@ CosyVoice 3, IndexTTS 2.5, GPT-SoVITS, AuK.
 
 ## O que falta para fechar a análise
 
-1. Rodar o Qwen3-TTS de verdade nesta máquina e medir contra o VoxCPM2, com o
-   mesmo texto e a mesma voz.
-2. Repetir o ranking com vários textos, e não um só.
-3. Comparação cega: gerar as amostras, embaralhar e ouvir sem saber qual é qual.
+1. Repetir o ranking com vários textos, e não um só. Hoje tudo se apoia em um
+   texto e uma semente.
+2. Comparação cega: gerar as amostras, embaralhar e ouvir sem saber qual é qual.
    Similaridade de locutor não captura naturalidade nem sotaque.
-4. Os cards dizem "Portuguese" sem separar pt-BR de pt-PT, e não achei avaliação
+3. Os cards dizem "Portuguese" sem separar pt-BR de pt-PT, e não achei avaliação
    cega independente específica de português do Brasil. A validação final tem que
    ser com amostra brasileira, ouvindo.
+4. Decidir se o Qwen3-TTS vira motor oficial do estúdio, ligado na tela junto com
+   os outros, ou se fica como experimento.
+
+## Como repetir qualquer medição deste documento
+
+```bash
+# 1. gerar com o mesmo texto nos motores que quiser comparar
+env -u PYTHONPATH <venv-do-app>/Scripts/python.exe \
+  experimentos/qualidade-v2/benchmark_clonagem.py <perfil_id> "texto"
+
+# 2. medir a similaridade de locutor (roda com o python da base)
+env -u PYTHONPATH <venv-da-base>/Scripts/python.exe \
+  experimentos/qualidade-v2/medir_locutor.py <referencia.wav> <gerado1.wav> <gerado2.wav>
+
+# 3. Qwen3-TTS isolado (precisa de VRAM livre: descarregue o voxcpm2 antes)
+curl -X POST http://127.0.0.1:3900/model/unload/engine:voxcpm2
+env -u PYTHONPATH HF_HOME=<pasta>/model-cache \
+  experimentos/qwen3-tts/.venv/Scripts/python.exe \
+  experimentos/qwen3-tts/runner.py experimentos/qwen3-tts/pedido-sem-texto.json
+```

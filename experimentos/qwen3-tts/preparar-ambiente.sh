@@ -1,28 +1,47 @@
 #!/usr/bin/env bash
 # Monta o ambiente isolado do Qwen3-TTS. Nao toca na base nem no venv do app.
+#
+#   bash experimentos/qwen3-tts/preparar-ambiente.sh
+#
+# Precisa de uv (recomendado) ou de um python 3.11 ou mais novo no PATH.
+# Os caminhos saem da posicao deste arquivo, entao funciona em qualquer maquina.
 set -u
 
-RAIZ="C:/Users/Gabriel/Documents/eleven-audio"
-DESTINO="$RAIZ/experimentos/qwen3-tts"
+DESTINO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DESTINO" || exit 1
-
 echo "=== pasta: $(pwd) ==="
 
-UV="C:/Users/Gabriel/.venvs/comfy-agent/Scripts/uv.exe"
-if [ ! -f "$UV" ]; then
-  UV="$(command -v uv 2>/dev/null || true)"
-fi
-if [ -z "${UV:-}" ] || [ ! -x "$UV" ]; then
-  echo "uv nao encontrado; usando venv + pip do python do sistema"
-  PY="C:/Users/Gabriel/AppData/Local/Programs/Python/Python313/python.exe"
-  "$PY" -m venv .venv || exit 1
-  exec ".venv/Scripts/python.exe" -m pip install --upgrade pip "qwen-tts"
-fi
+PY_PROJETO=".venv/Scripts/python.exe"
+[ -f "$PY_PROJETO" ] || PY_PROJETO=".venv/bin/python"
 
-echo "=== uv: $UV ==="
-"$UV" venv .venv --python 3.11 || exit 1
-"$UV" pip install --python .venv/Scripts/python.exe "qwen-tts" || exit 1
+# O indice padrao do PyPI entrega torch de CPU. Pedir o mesmo numero de versao
+# vindo do indice CUDA nao basta: o uv responde "Checked" e nao reinstala, e voce
+# fica com torch +cpu sem perceber. Por isso --reinstall, e por isso cu130:
+# a versao 2.14 existe em cu130, enquanto cu128 para em 2.11.
+INDICE_CUDA="https://download.pytorch.org/whl/cu130"
+
+if command -v uv >/dev/null 2>&1; then
+  UV="$(command -v uv)"
+  echo "=== uv: $UV ==="
+  "$UV" venv .venv --python 3.11 || exit 1
+  "$UV" pip install --python "$PY_PROJETO" "qwen-tts" || exit 1
+  "$UV" pip install --python "$PY_PROJETO" --reinstall torch torchaudio \
+    --index-url "$INDICE_CUDA" || exit 1
+else
+  echo "=== uv nao encontrado; usando python -m venv + pip ==="
+  PY="$(command -v python3 || command -v python || true)"
+  if [ -z "$PY" ]; then
+    echo "python nao encontrado no PATH" >&2
+    exit 1
+  fi
+  "$PY" -m venv .venv || exit 1
+  "$PY_PROJETO" -m pip install --upgrade pip "qwen-tts" || exit 1
+  "$PY_PROJETO" -m pip install --force-reinstall torch torchaudio \
+    --index-url "$INDICE_CUDA" || exit 1
+fi
 
 echo
 echo "=== confirmando ==="
-".venv/Scripts/python.exe" -c "import importlib.metadata as m; print('qwen-tts', m.version('qwen-tts')); import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())"
+"$PY_PROJETO" -c "import importlib.metadata as m; print('qwen-tts', m.version('qwen-tts')); import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())"
+echo
+echo "Se cuda vier False, o torch instalado e build de CPU: rode de novo com uv."

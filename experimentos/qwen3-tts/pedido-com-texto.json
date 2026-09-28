@@ -1,0 +1,9 @@
+{
+  "text": "Hoje eu testei a clonagem de voz com calma, ouvindo cada detalhe, para escolher o motor que mais parece com a minha voz.",
+  "language": "Portuguese",
+  "reference_audio": "dados/referencias/c00df85fce2c483eba0f3ecc1eeaafe9.wav",
+  "reference_text": "A gente vai desbloquear os poderes do Nemotron. A gente vai aplicar um jailbreak nele. Dentro do Hermes. No qual desbloqueia todas as restricoes que vem de fabrica. Entao, quando a gente pergunta certas coisas para a IA, ela nao pode responder por etica, por um monte de travas que sao feitas na hora de treinar esse modelo. Porem, existem formas de fazer isso e o Jailbreak.",
+  "output": "saidas/audio/2026-09-28/qwen3tts-com-texto.wav",
+  "device": "cuda",
+  "seed": 2026
+}

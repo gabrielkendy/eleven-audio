@@ -1,0 +1,9 @@
+{
+  "text": "Hoje eu testei a clonagem de voz com calma, ouvindo cada detalhe, para escolher o motor que mais parece com a minha voz.",
+  "language": "Portuguese",
+  "reference_audio": "dados/referencias/c00df85fce2c483eba0f3ecc1eeaafe9.wav",
+  "reference_text": "",
+  "output": "saidas/audio/2026-09-28/qwen3tts-sem-texto.wav",
+  "device": "cuda",
+  "seed": 2026
+}
