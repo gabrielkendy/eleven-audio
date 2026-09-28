@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query
 
 from app import ajustes as ajustes_de_qualidade
-from app import base, clonar, cofre, marcas, saidas
+from app import base, clonar, cofre, licencas, marcas, saidas
 from app.chatterbox_local import disponivel as chatterbox_disponivel
 from app.chatterbox_local import sintetizar_chatterbox
 from app.config import Configuracao
@@ -52,34 +52,71 @@ def _abrir_cofre(config: Configuracao) -> cofre.Cofre:
     return cofre.abrir(config.dados / "estudio.db")
 
 
+def _com_licenca(motor: dict[str, Any]) -> dict[str, Any]:
+    """Acrescenta a licença confirmada e o aviso comercial a um motor.
+
+    Os motores são montados em vários caminhos: mock, chatterbox local, base
+    fora do ar, falha ao listar, e o catálogo da base. Centralizar aqui evita o
+    defeito que apareceu em 28/09/2026, quando só o caminho do catálogo recebeu
+    a licença e mock e chatterbox-ptbr ficaram sem aviso nenhum.
+    """
+    motor["licenca"] = licencas.da_licenca(str(motor["id"]))
+    motor["aviso_licenca"] = licencas.aviso_comercial(str(motor["id"]))
+    return motor
+
+
 def _motores(config: Configuracao, base_no_ar: bool) -> list[dict[str, Any]]:
     motores: list[dict[str, Any]] = [
-        {
-            "id": "mock",
-            "nome": "Mock local",
-            "disponivel": True,
-            "motivo": None,
-            "idiomas": ["pt"],
-            "clonagem": False,
-            "limite_referencia_s": None,
-            "uso_da_referencia": NAO_CLONA,
-            "dispositivo": "cpu",
-        }
+        _com_licenca(
+            {
+                "id": "mock",
+                "nome": "Mock local",
+                "disponivel": True,
+                "motivo": None,
+                "idiomas": ["pt"],
+                "clonagem": False,
+                "limite_referencia_s": None,
+                "uso_da_referencia": NAO_CLONA,
+                "dispositivo": "cpu",
+            }
+        )
     ]
     if chatterbox_disponivel():
-        motores.append({"id": "chatterbox-ptbr", "nome": "Chatterbox V3 · Português do Brasil",
-                        "disponivel": True, "motivo": None, "idiomas": ["pt"],
-                        "clonagem": True, "limite_referencia_s": None,
-                        "uso_da_referencia": CHATTERBOX_REFERENCIA,
-                        "dispositivo": "auto · CUDA ou CPU"})
+        motores.append(_com_licenca({
+            "id": "chatterbox-ptbr", "nome": "Chatterbox V3 · Português do Brasil",
+            "disponivel": True, "motivo": None, "idiomas": ["pt"],
+            "clonagem": True, "limite_referencia_s": None,
+            "uso_da_referencia": CHATTERBOX_REFERENCIA,
+            "dispositivo": "auto · CUDA ou CPU",
+        }))
     if not base_no_ar:
         for identificador in ("omnivoice", "voxcpm2"):
             motores.append(
+                _com_licenca(
+                    {
+                        "id": identificador,
+                        "nome": identificador,
+                        "disponivel": False,
+                        "motivo": "base esta fora do ar",
+                        "idiomas": [],
+                        "clonagem": True,
+                        "limite_referencia_s": None,
+                        "uso_da_referencia": NAO_VERIFICADO,
+                        "dispositivo": None,
+                    }
+                )
+            )
+        return motores
+    try:
+        catalogo = base.listar_motores(config)
+    except (httpx.HTTPError, OSError, ValueError) as erro:
+        motores.append(
+            _com_licenca(
                 {
-                    "id": identificador,
-                    "nome": identificador,
+                    "id": "omnivoice",
+                    "nome": "omnivoice",
                     "disponivel": False,
-                    "motivo": "base esta fora do ar",
+                    "motivo": str(erro),
                     "idiomas": [],
                     "clonagem": True,
                     "limite_referencia_s": None,
@@ -87,22 +124,6 @@ def _motores(config: Configuracao, base_no_ar: bool) -> list[dict[str, Any]]:
                     "dispositivo": None,
                 }
             )
-        return motores
-    try:
-        catalogo = base.listar_motores(config)
-    except (httpx.HTTPError, OSError, ValueError) as erro:
-        motores.append(
-            {
-                "id": "omnivoice",
-                "nome": "omnivoice",
-                "disponivel": False,
-                "motivo": str(erro),
-                "idiomas": [],
-                "clonagem": True,
-                "limite_referencia_s": None,
-                "uso_da_referencia": NAO_VERIFICADO,
-                "dispositivo": None,
-            }
         )
         return motores
     for item in catalogo.get("backends", []):
@@ -110,19 +131,21 @@ def _motores(config: Configuracao, base_no_ar: bool) -> list[dict[str, Any]]:
         bloqueio = MOTORES_BLOQUEADOS.get(identificador)
         clona = bool(item.get("supports_cloning"))
         motores.append(
-            {
-                "id": identificador,
-                "nome": item.get("display_name", identificador),
-                "disponivel": bool(item.get("available")) and not bloqueio,
-                "motivo": bloqueio or item.get("reason") or item.get("last_error"),
-                "idiomas": item.get("supported_language_names") or [],
-                "clonagem": clona,
-                "limite_referencia_s": item.get("max_ref_seconds"),
-                "uso_da_referencia": _uso_da_referencia(
-                    item.get("ref_strategy"), item.get("max_ref_seconds"), clona
-                ),
-                "dispositivo": item.get("effective_device"),
-            }
+            _com_licenca(
+                {
+                    "id": identificador,
+                    "nome": item.get("display_name", identificador),
+                    "disponivel": bool(item.get("available")) and not bloqueio,
+                    "motivo": bloqueio or item.get("reason") or item.get("last_error"),
+                    "idiomas": item.get("supported_language_names") or [],
+                    "clonagem": clona,
+                    "limite_referencia_s": item.get("max_ref_seconds"),
+                    "uso_da_referencia": _uso_da_referencia(
+                        item.get("ref_strategy"), item.get("max_ref_seconds"), clona
+                    ),
+                    "dispositivo": item.get("effective_device"),
+                }
+            )
         )
     return motores
 
@@ -247,6 +270,9 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
             "audio_url": f"/saidas/{relativo}",
             "ajustes": ajustes_efetivos,
             "resumo_ajustes": ajustes_de_qualidade.resumo(ajustes_efetivos, velocidade),
+            # Sem isto, quem vende pode gerar com um motor de pesos nao comerciais
+            # e so descobrir depois. O aviso viaja junto do audio.
+            "aviso_licenca": licencas.aviso_comercial(motor),
         }
 
     @rotas.get("/gerar/{geracao_id}")

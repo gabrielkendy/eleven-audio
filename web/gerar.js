@@ -129,7 +129,8 @@ window.AREAS.gerar = {
       const motor = motores.find((item) => item.id === campo("motor").value);
       if (!motor) return;
       campo("motor-chip").textContent = nomeMotor(motor);
-      campo("motor-resumo").textContent = motor.id === "kittentts" ? "Somente inglês. Não clona sua voz." : motor.clonagem ? "Clonagem disponível. Selecione sua voz abaixo." : "Síntese de fala. Não oferece clonagem de voz.";
+      const descricao = motor.id === "kittentts" ? "Somente inglês. Não clona sua voz." : motor.clonagem ? "Clonagem disponível. Selecione sua voz abaixo." : "Síntese de fala. Não oferece clonagem de voz.";
+      campo("motor-resumo").textContent = motor.aviso_licenca ? `${descricao} ${motor.aviso_licenca}` : descricao;
       campo("motor-dispositivo").textContent = motor.dispositivo || "sem dispositivo";
       campo("motor-estado").textContent = motor.disponivel ? "instalado" : "indisponível";
       const detalhado = campo("qualidade").querySelector('[value="detalhado"]');

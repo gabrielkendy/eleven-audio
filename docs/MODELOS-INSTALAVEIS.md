@@ -44,9 +44,25 @@ de receita anual, bem acima do nosso caso. Ele sai só pelo idioma.
 | OmniVoice GGUF | Apache-2.0 | **CC-BY-NC-4.0** |
 
 O OmniVoice tem código Apache-2.0 mas pesos CC-BY-NC, e as versões quantizadas
-herdam a mesma restrição. Quantizar não limpa a licença. Isso já está tratado no
-código: `MOTORES_BLOQUEADOS`, em `app/rotas.py`, impede que o catálogo ofereça
-esse caminho para uso comercial.
+herdam a mesma restrição. Quantizar não limpa a licença.
+
+Fonte primária, README do próprio modelo: *"Our code is released under the Apache
+2.0 License. The pre-trained model is licensed under the CC-BY-NC due to
+constraints from its training data (e.g., Emilia)."*
+
+**Tratamento no código:** `app/licencas.py` guarda a licença confirmada de cada
+motor, com a fonte, e a rota `/api/motores` devolve `licenca` e `aviso_licenca`.
+A resposta de `/api/gerar` também carrega `aviso_licenca`, para o alerta viajar
+junto do áudio em vez de ficar escondido no catálogo.
+
+⚠️ **Correção de 28/09/2026:** este documento afirmava antes que
+`MOTORES_BLOQUEADOS`, em `app/rotas.py`, impedia o catálogo de oferecer o
+OmniVoice para uso comercial. **Isso era falso.** Aquela lista só bloqueia o
+`omnivoice-subprocess`, e por motivo diferente (ambiente isolado incompleto, não
+licença). O OmniVoice era oferecido normalmente, e chegou a ficar como motor
+ativo. Agora o aviso existe de fato, mas ele **avisa, não impede**: quem decide
+usar mesmo assim consegue. Bloquear de verdade seria decisão do dono, não minha.
+
 
 ## Recomendados
 
