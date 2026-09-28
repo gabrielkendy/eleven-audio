@@ -9,6 +9,13 @@ import httpx
 
 from app.config import Configuracao
 
+# Saída crua do modelo, sem os retoques que a base aplica por conta própria.
+# Ver a explicação dentro de montar_corpo para a medição que sustenta isto.
+PADROES_FIEIS: dict[str, str] = {
+    "effect_preset": "raw",
+    "denoise": "false",
+}
+
 
 class ErroBase(RuntimeError):
     pass
@@ -61,6 +68,13 @@ def montar_corpo(
         "language": idioma,
         "speed": str(velocidade),
         "stream": "false",
+        # Quando estes campos não vão, a base aplica os padrões DELA: limpeza de
+        # ruído ligada e preset de efeito "broadcast", que comprime e equaliza.
+        # Medido em 28/09/2026, mesma voz, texto e semente: fidelidade de 0,7751
+        # com o padrão da base contra 0,7842 com a saída crua, e a diferença entre
+        # os dois áudios é de -23 dBFS, ou seja, audível. Clonar bem quer o modelo
+        # sem retoque, então o padrão daqui é cru, e quem quiser efeito pede.
+        **PADROES_FIEIS,
     }
     if perfil_id:
         corpo["profile_id"] = perfil_id

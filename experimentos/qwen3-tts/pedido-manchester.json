@@ -1,0 +1,9 @@
+{
+  "text": "Essa e a nova voz clonada, usando uma amostra de cinquenta e seis segundos. O audio estava muito mais limpo do que antes.",
+  "language": "Portuguese",
+  "reference_audio": "saidas/comparacao-clonagem/0-referencia-preparada.wav",
+  "reference_text": "",
+  "output": "saidas/comparacao-clonagem/2-Qwen3TTS-0.7865.wav",
+  "device": "cuda",
+  "seed": 2026
+}

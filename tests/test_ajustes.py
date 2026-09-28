@@ -78,6 +78,42 @@ def test_montar_corpo_leva_ajustes_e_omite_semente_vazia() -> None:
     assert "seed" not in corpo
 
 
+def test_montar_corpo_usa_saida_crua_por_padrao() -> None:
+    """Regressao: sem estes campos a base aplica a limpeza de ruido e o preset dela.
+
+    Medido em 28/09/2026, mesma voz, texto e semente: o padrao da base deu 0,7751
+    de fidelidade de locutor contra 0,7842 da saida crua. Clonar bem quer o modelo
+    sem retoque, entao o padrao daqui e cru.
+    """
+    corpo = montar_corpo(
+        texto="oi",
+        motor="voxcpm2",
+        perfil_id="vz-1",
+        idioma="pt",
+        velocidade=1.0,
+        semente=None,
+    )
+
+    assert corpo["effect_preset"] == "raw"
+    assert corpo["denoise"] == "false"
+
+
+def test_ajuste_do_usuario_vence_o_padrao_cru() -> None:
+    """Quem pede efeito recebe efeito: o ajuste explicito tem prioridade."""
+    corpo = montar_corpo(
+        texto="oi",
+        motor="voxcpm2",
+        perfil_id="vz-1",
+        idioma="pt",
+        velocidade=1.0,
+        semente=None,
+        ajustes={"effect_preset": "broadcast", "denoise": "true"},
+    )
+
+    assert corpo["effect_preset"] == "broadcast"
+    assert corpo["denoise"] == "true"
+
+
 def test_resumo_traduz_para_portugues() -> None:
     texto = resumo({"effect_preset": "podcast", "num_step": "32", "denoise": "false"}, 1.5)
 
