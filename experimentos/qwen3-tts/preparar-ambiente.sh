@@ -34,6 +34,19 @@ else
     echo "python nao encontrado no PATH" >&2
     exit 1
   fi
+  # O qwen-tts pede ambiente limpo, e o ecossistema do torch costuma demorar a
+  # publicar pacote para as versoes mais novas de python. Fora desta faixa o
+  # risco de nao achar pacote pronto e alto, entao avisa antes de tentar.
+  VERSAO="$("$PY" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo "?")"
+  case "$VERSAO" in
+    3.10|3.11|3.12) ;;
+    *)
+      echo "AVISO: o python encontrado e $VERSAO. O qwen-tts recomenda 3.12 e o torch"
+      echo "       pode nao ter pacote pronto para essa versao."
+      echo "       Se a instalacao falhar, instale o uv e rode este script de novo:"
+      echo "       com uv a versao certa e baixada automaticamente."
+      ;;
+  esac
   "$PY" -m venv .venv || exit 1
   "$PY_PROJETO" -m pip install --upgrade pip "qwen-tts" || exit 1
   "$PY_PROJETO" -m pip install --force-reinstall torch torchaudio \
