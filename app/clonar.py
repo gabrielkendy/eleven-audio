@@ -120,18 +120,27 @@ def criar_perfil(
         #
         # Nao reordena nada e nao corta fala, entao a transcricao continua
         # valendo para o audio que a base recebe.
+        motivo_preparo_ignorado: str | None = None
         if config.preparo:
             try:
+                # A saida tem que ser WAV, sempre. O arquivo preparado recebe PCM
+                # de 16 bits, e escrever PCM dentro de um container .mp3 faz o
+                # ffmpeg nao gravar nada ("received no packets"). Como a falha
+                # era engolida, a preparacao morria em silencio para todo
+                # arquivo .mp3, que e justamente o formato mais comum.
                 preparado = preparo.preparar(
                     destino,
-                    destino.with_name(f"{destino.stem}-preparado{destino.suffix}"),
+                    destino.with_name(f"{destino.stem}-preparado.wav"),
                     limite_s=DURACAO_MAXIMA_S,
                 )
                 audio_para_base = Path(str(preparado["arquivo_preparado"]))
-            except preparo.ErroPreparo:
-                # Se a preparacao falhar, a clonagem segue com o arquivo original.
-                # Preparar e uma melhoria, nao um requisito.
+            except preparo.ErroPreparo as erro:
+                # Preparar e uma melhoria, nao um requisito: se falhar, a
+                # clonagem segue com o arquivo original. Mas o motivo fica
+                # registrado na resposta, senao a melhoria pode morrer calada
+                # para um formato inteiro sem ninguem perceber.
                 preparado = None
+                motivo_preparo_ignorado = str(erro)
 
         with _sessao(config, cliente) as base:
             if not transcricao:
@@ -204,6 +213,8 @@ def criar_perfil(
                 "ganho_aplicado_db": preparado.get("ganho_aplicado_db"),
                 "explicacao": "Silencio das pontas cortado e nivel acertado antes de enviar para o motor.",
             }
+        elif motivo_preparo_ignorado:
+            resposta_final["preparo_ignorado"] = motivo_preparo_ignorado
         return resposta_final
     except Exception:
         if preparado and audio_para_base != destino:

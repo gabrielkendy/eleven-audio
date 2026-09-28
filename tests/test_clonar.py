@@ -274,3 +274,69 @@ def test_interface_contem_area_clonar_e_texto_literal() -> None:
     assert "Carregando" in javascript
     assert "Nenhum perfil" in javascript
     assert "Erro" in javascript
+
+
+def test_referencia_mp3_tambem_recebe_preparo(tmp_path: Path) -> None:
+    """Regressao: o preparo morria em silencio para arquivo .mp3.
+
+    O arquivo preparado herdava a extensao do original e recebia PCM de 16 bits.
+    O ffmpeg nao escreve PCM dentro de um container .mp3, entao a preparacao
+    falhava, o erro era engolido e a base recebia a amostra crua. Como mp3 e o
+    formato mais comum de referencia, a melhoria ficava desligada na pratica.
+    """
+    import subprocess
+
+    origem = _wav(tmp_path / "voz.wav", 8)
+    mp3 = tmp_path / "voz.mp3"
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-i", str(origem), "-c:a", "libmp3lame",
+         "-b:a", "192k", str(mp3)],
+        check=True, timeout=120,
+    )
+
+    capturado: dict[str, bytes] = {}
+
+    def parte(corpo: bytes, cabecalho: str, nome: str) -> bytes:
+        chave = "boundary="
+        posicao = cabecalho.find(chave)
+        fronteira = cabecalho[posicao + len(chave):].strip().strip('"') 
+        LINHA = chr(13) + chr(10)
+        for bloco in corpo.split(b"--" + fronteira.encode()):
+            if f'name="{nome}"'.encode() in bloco:
+                _, _, dados = bloco.partition((LINHA + LINHA).encode())
+                return dados[:-2] if dados.endswith(LINHA.encode()) else dados
+        return b""
+
+    def base(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/profiles":
+            capturado["audio"] = parte(request.content,
+                                       request.headers.get("content-type", ""), "ref_audio")
+            return httpx.Response(200, json={"id": "base-mp3"})
+        if request.url.path == "/profiles/base-mp3/consent":
+            return httpx.Response(200, json={"ok": True})
+        if request.method == "DELETE" and request.url.path == "/profiles/base-mp3":
+            return httpx.Response(200, json={"ok": True})
+        return httpx.Response(500, text="rota inesperada")
+
+    config = _config(tmp_path)
+
+    with httpx.Client(transport=httpx.MockTransport(base), base_url=config.base_url) as cliente:
+        criado = criar_perfil(
+            config,
+            nome="Voz mp3",
+            nome_arquivo="voz.mp3",
+            conteudo=mp3.read_bytes(),
+            transcricao="Texto de referencia.",
+            origem_voz="propria",
+            aceite_consentimento=True,
+            cliente=cliente,
+        )
+        assert criado["id_na_base"] == "base-mp3"
+        assert "preparo_ignorado" not in criado, criado.get("preparo_ignorado")
+        assert "preparo" in criado, "o preparo nao rodou para mp3"
+        assert float(criado["preparo"]["duracao_enviada_s"]) > 0
+        # A prova forte: a base recebeu WAV, nao o mp3 original.
+        assert capturado["audio"].startswith(b"RIFF"), capturado["audio"][:12]
+
+    sobrou = list((config.dados / "referencias").glob("*preparado*"))
+    assert sobrou == [], sobrou
