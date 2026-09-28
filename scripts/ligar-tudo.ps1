@@ -72,6 +72,13 @@ try {
         $JobBase = Start-Job -ScriptBlock {
             param($Diretorio, $Python)
             Set-Location -LiteralPath $Diretorio
+            # Modo offline: sem isto a base consulta o HuggingFace a cada geracao
+            # para checar metadados de modelo. Medido em 28/09/2026: com os tres,
+            # zero conexao externa, e a geracao continua identica. Os modelos ja
+            # estao em disco, entao nao ha o que baixar.
+            $env:HF_HUB_OFFLINE = '1'
+            $env:TRANSFORMERS_OFFLINE = '1'
+            $env:HF_HUB_DISABLE_TELEMETRY = '1'
             & $Python -m uvicorn backend.main:app --host 127.0.0.1 --port 3900
         } -ArgumentList $BaseDir, $PythonBase
         $JobsIniciados += $JobBase

@@ -24,6 +24,14 @@ if (Get-NetTCPConnection -LocalPort $Porta -State Listen -ErrorAction SilentlyCo
 }
 
 Push-Location -LiteralPath $BaseDir
+# Modo offline: a base, por padrao, consulta o HuggingFace a cada geracao para
+# checar metadados de modelo. Medido em 28/09/2026: sem estes tres, a geracao
+# abria uma conexao HTTPS externa (CloudFront); com eles, zero conexao externa e
+# a geracao continua identica. Os modelos aqui ja estao em disco, entao nao ha o
+# que baixar. Fica documentado que a solucao roda sem internet.
+$env:HF_HUB_OFFLINE = '1'
+$env:TRANSFORMERS_OFFLINE = '1'
+$env:HF_HUB_DISABLE_TELEMETRY = '1'
 try {
     & $PythonBase -m uvicorn backend.main:app --host 127.0.0.1 --port $Porta
     if ($LASTEXITCODE -ne 0) {
