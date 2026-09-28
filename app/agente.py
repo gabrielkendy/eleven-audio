@@ -11,7 +11,15 @@ from app.config import Configuracao
 
 
 class ErroAgente(RuntimeError):
-    pass
+    """Falha ao falar com a base do agente.
+
+    Carrega o código HTTP quando houve resposta, para quem chama decidir pelo
+    código em vez de casar texto de mensagem.
+    """
+
+    def __init__(self, mensagem: str, status: int | None = None) -> None:
+        super().__init__(mensagem)
+        self.status = status
 
 
 class Agente:
@@ -42,7 +50,7 @@ class Agente:
             except (json.JSONDecodeError, AttributeError):
                 pass
             raise ErroAgente(
-                f"A base recusou a operação ({erro.code}): {detalhe}"
+                f"A base recusou a operação ({erro.code}): {detalhe}", erro.code
             ) from erro
         except (URLError, TimeoutError, OSError) as erro:
             motivo = getattr(erro, "reason", erro)
@@ -111,7 +119,16 @@ class Agente:
         cliente_id = cliente_id.strip()
         if not cliente_id:
             raise ValueError("Informe o identificador do cliente")
-        self._requisitar("DELETE", f"/api/mcp/bindings/{quote(cliente_id, safe='')}")
+        try:
+            self._requisitar("DELETE", f"/api/mcp/bindings/{quote(cliente_id, safe='')}")
+        except ErroAgente as erro:
+            # Desligar precisa ser idempotente. A base responde 404 quando não há
+            # vínculo, e isso não é falha de comunicação: é o estado desejado já
+            # alcançado. Antes, clicar em desligar duas vezes devolvia 502 Bad
+            # Gateway, como se algo tivesse quebrado, e ainda deixava o vínculo
+            # local para trás.
+            if erro.status != 404:
+                raise
         cofre = abrir(self._banco)
         try:
             cofre.remover_vinculo(cliente_id)

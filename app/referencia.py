@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from app import ffmpeg
+
 # A amostra aceita vai ate 3 minutos (ver app/clonar.py). O diagnostico precisa
 # cobrir o arquivo inteiro, senao ele mede so o comeco e mente sobre o resto.
 TETO_ANALISE_S = 200
@@ -15,12 +17,20 @@ TETO_ANALISE_S = 200
 def diagnosticar(arquivo: Path) -> dict[str, object]:
     """Decodifica a amostra inteira sem alterar o original. Mesmas unidades para todos formatos."""
     processo = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(arquivo), "-t", str(TETO_ANALISE_S), "-ac", "1",
+        [ffmpeg.executavel(), "-v", "error", "-i", str(arquivo), "-t", str(TETO_ANALISE_S), "-ac", "1",
          "-ar", "16000", "-f", "f32le", "pipe:1"],
         capture_output=True, timeout=120, check=False,
     )
     if processo.returncode or not processo.stdout:
-        raise ValueError("Não foi possível analisar a referência de áudio.")
+        # O motivo real do ffmpeg vai na mensagem. Sem isso, um defeito de
+        # ambiente (por exemplo, PATH sem ffmpeg) aparece na tela como um genérico
+        # "não foi possível analisar", e a causa fica invisível. Foi assim que
+        # escondi um defeito antes: degradação graciosa que não conta o motivo.
+        motivo = processo.stderr.decode("utf-8", "replace").strip()[:300]
+        raise ValueError(
+            "Não foi possível analisar a referência de áudio."
+            + (f" O ffmpeg disse: {motivo}" if motivo else " O ffmpeg não devolveu motivo.")
+        )
     amostras = array.array("f")
     amostras.frombytes(processo.stdout)
     if sys.byteorder != "little":

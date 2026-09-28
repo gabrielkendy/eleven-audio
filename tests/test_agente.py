@@ -6,10 +6,11 @@ from pathlib import Path
 from threading import Thread
 from typing import ClassVar
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.agente import Agente
+from app.agente import Agente, ErroAgente
 from app.cofre import abrir
 from app.config import carregar_config
 from app.rotas_agente import criar_router
@@ -50,7 +51,15 @@ class _BaseHandler(BaseHTTPRequestHandler):
     def do_DELETE(self) -> None:
         cliente_id = self.path.rsplit("/", 1)[-1]
         removido = type(self).vinculos.pop(cliente_id, None)
-        self._json(200, {"deleted": removido is not None})
+        if removido is None:
+            # Comportamento medido na base real em 28/09/2026: apagar vinculo
+            # inexistente devolve 404, nao 200. A versao antiga deste simulador
+            # respondia 200 sempre, e por isso a suite nunca pegou o defeito de o
+            # desligar virar 502 na segunda tentativa. Simulador mais tolerante
+            # que a realidade esconde erro.
+            self._json(404, {"detail": "No binding for that client id"})
+            return
+        self._json(200, {"deleted": True})
 
     def log_message(self, format: str, *args: object) -> None:
         return
@@ -110,6 +119,54 @@ def test_ligar_status_e_desligar_espelham_base_e_sqlite(tmp_path: Path) -> None:
         assert servico.desligar("codex-local")["estado"] == "desligado"
         assert servico.status()["vinculos_base"] == []
         assert servico.status()["vinculos_locais"] == []
+    finally:
+        servidor.shutdown()
+        servidor.server_close()
+        thread.join()
+
+
+def test_desligar_duas_vezes_nao_e_erro(tmp_path: Path) -> None:
+    """Regressao: desligar sem vinculo devolvia 502 Bad Gateway.
+
+    Nada estava quebrado, so nao havia vinculo a desfazer, e a base responde 404
+    nesse caso. Como o 404 era traduzido para 502, a segunda tentativa de desligar
+    parecia falha de comunicacao e ainda deixava o vinculo local para tras. Agora
+    desligar e idempotente, igual ao ligar, que ja usa PUT.
+    """
+    servidor, thread = _base()
+    try:
+        servico, perfil_id = _servico(
+            tmp_path, f"http://127.0.0.1:{servidor.server_address[1]}"
+        )
+
+        servico.ligar("cliente-repetido", perfil_id)
+        assert servico.desligar("cliente-repetido")["estado"] == "desligado"
+
+        segunda = servico.desligar("cliente-repetido")
+        assert segunda["estado"] == "desligado"
+        assert segunda["cliente_id"] == "cliente-repetido"
+
+        terceira = servico.desligar("cliente-repetido")
+        assert terceira["estado"] == "desligado"
+        assert servico.status()["vinculos_locais"] == []
+    finally:
+        servidor.shutdown()
+        servidor.server_close()
+        thread.join()
+
+
+def test_erro_do_agente_carrega_o_codigo(tmp_path: Path) -> None:
+    """Quem chama precisa decidir pelo codigo, nao por texto de mensagem."""
+    servidor, thread = _base()
+    try:
+        servico, _ = _servico(
+            tmp_path, f"http://127.0.0.1:{servidor.server_address[1]}"
+        )
+
+        with pytest.raises(ErroAgente) as capturado:
+            servico._requisitar("GET", "/rota-que-nao-existe")
+
+        assert capturado.value.status == 404
     finally:
         servidor.shutdown()
         servidor.server_close()

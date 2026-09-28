@@ -24,6 +24,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from app import ffmpeg
+
 TAXA_ANALISE = 16000
 QUADROS_POR_JANELA = 400          # 25 ms a 16 kHz
 SALTO = 160                       # 10 ms, sobreposicao de 15 ms
@@ -38,7 +40,7 @@ class ErroPreparo(Exception):
 
 def _decodificar(arquivo: Path, limite_s: float | None = None) -> array.array:
     """Decodifica para mono 16 kHz float32. So para analise, nao altera original."""
-    comando = ["ffmpeg", "-v", "error", "-i", str(arquivo)]
+    comando = [ffmpeg.executavel(), "-v", "error", "-i", str(arquivo)]
     if limite_s:
         comando += ["-t", f"{limite_s:.3f}"]
     comando += ["-ac", "1", "-ar", str(TAXA_ANALISE), "-f", "f32le", "pipe:1"]
@@ -145,7 +147,7 @@ def preparar(
         raise ErroPreparo("A janela de fala encontrada ficou curta demais.")
 
     comando = [
-        "ffmpeg", "-v", "error", "-y",
+        ffmpeg.executavel(), "-v", "error", "-y",
         "-i", str(origem),
         "-ss", f"{inicio:.3f}",
         "-t", f"{duracao:.3f}",

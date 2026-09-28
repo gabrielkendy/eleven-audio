@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query
 
 from app import ajustes as ajustes_de_qualidade
-from app import base, clonar, cofre, licencas, marcas, saidas
+from app import base, clonar, cofre, ffmpeg, licencas, marcas, saidas
 from app.chatterbox_local import disponivel as chatterbox_disponivel
 from app.chatterbox_local import sintetizar_chatterbox
 from app.config import Configuracao
@@ -366,9 +366,16 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
     @rotas.get("/saude")
     def saude() -> dict[str, str | float]:
         livre = shutil.disk_usage(config.dados).free / (1024**3)
+        # O ffmpeg entra na saúde de propósito: sem ele o preparo da amostra
+        # degrada em silêncio, e o preparo é o que mais melhora a clonagem.
+        # Melhor aparecer aqui do que virar um erro obscuro no meio da clonagem.
+        tem_ffmpeg, detalhe = ffmpeg.disponivel()
         return {
             "nosso_app": "ok",
             "base": "ok" if verificar_base() else "erro",
+            "ffmpeg": "ok" if tem_ffmpeg else "erro",
+            # quando está ok, o detalhe é o caminho achado; quando falta, é o que instalar
+            "ffmpeg_detalhe": detalhe,
             "disco_livre_gb": round(livre, 2),
         }
 
