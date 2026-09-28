@@ -82,3 +82,25 @@ def test_verificador_normaliza_motores_e_mede_wav(tmp_path: Path) -> None:
         "VoxCPM2",
     ]
     assert modulo._duracao_wav(arquivo) == 0.5
+
+
+@pytest.mark.parametrize("caminho", ["scripts/subir-base.ps1", "scripts/ligar-tudo.ps1"])
+def test_base_sobe_em_modo_offline(caminho: str) -> None:
+    """Regressao: sem isto a base consulta o HuggingFace a cada geracao.
+
+    Medido em 28/09/2026 com as conexoes do Windows sendo observadas: no modo
+    padrao a geracao abre uma conexao HTTPS externa, e com as tres variaveis
+    ficam zero, com a geracao identica. Em ligar-tudo a definicao precisa estar
+    dentro do Start-Job, senao nao chega no processo filho.
+    """
+    texto = (RAIZ / caminho).read_text(encoding="utf-8")
+    uvicorn = texto.find("uvicorn backend.main:app")
+    assert uvicorn > 0, f"nao achei o uvicorn em {caminho}"
+
+    inicio = texto.find("Start-Job") if "ligar-tudo" in caminho else 0
+    assert inicio >= 0, f"nao achei o Start-Job em {caminho}"
+
+    for variavel in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_HUB_DISABLE_TELEMETRY"):
+        posicao = texto.find(f"$env:{variavel}", inicio)
+        assert posicao > inicio, f"{variavel} ausente em {caminho}"
+        assert posicao < uvicorn, f"{variavel} precisa vir antes do uvicorn em {caminho}"
