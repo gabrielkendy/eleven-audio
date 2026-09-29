@@ -1,17 +1,60 @@
-# ELEVEN_AUDIO — Estúdio de Voz Local
+# ELEVEN AUDIO — Estúdio de Voz Local
 
-Repositório público: **github.com/gabrielkendy/eleven-audio** (MIT)
+Clonagem de voz, geração de fala, transcrição, tradução e **dublagem de áudio para
+outro idioma** — tudo rodando **na sua máquina**. Sem nuvem, sem assinatura, sem
+crédito, sem telemetria.
+
+Repositório: **github.com/gabrielkendy/eleven-audio** (MIT)
 Autor: Gabriel Kendy (Agência BASE)
-Stack: Python 3.11+, HTML/CSS/JS puro, FastAPI, uvicorn, SQLite, ffmpeg
+
+---
+
+## Instalar em 1 clique
+
+1. Baixe esta pasta ([Download ZIP](../../archive/refs/heads/main.zip))
+2. Descompacte onde quiser
+3. Duplo clique em **`instalador/INSTALAR.bat`**
+
+O instalador confere a máquina, instala o que falta, baixa o motor de voz, cria os
+ambientes e deixa o atalho na Área de Trabalho. Depois é **1 clique pra abrir** e
+**1 pra fechar**.
+
+Só quer saber se sua máquina dá conta, sem instalar nada? Rode
+**`instalador/SO-CONFERIR.bat`**.
+
+O download aqui é de **~1 MB**. Os modelos vêm depois, direto do HuggingFace,
+**sem conta e com retomada** — se cair no meio, continua de onde parou. É a maior
+parte do tempo de instalação (o transcritor sozinho são 3 GB; o motor de voz
+depende do que você escolher na tela).
+
+**Windows 10/11 · sem conta em lugar nenhum · internet só na instalação.**
+
+## O que a máquina precisa
+
+| item | mínimo | por quê |
+|---|---|---|
+| Windows | 10 (21H2+) ou 11, 64 bits | testado só aqui |
+| Python | 3.11 a 3.13 | a base pede 3.11+; o torch ainda não publica para 3.14 |
+| **ffmpeg** | obrigatório | corta silêncio e mede duração — é o que mais melhora a clonagem (0,8025 com preparo contra 0,7404 sem) |
+| GPU NVIDIA | 8 GB VRAM recomendado | o estúdio usa ~6 GB; com 6 GB não sobra folga pro Windows |
+| RAM | 16 GB | consome ~1,3 GB por geração |
+| Disco | 25 GB livres | ~9 GB de ambiente + pesos + seus áudios |
+| Internet | só na instalação | depois roda offline |
+
+O instalador cuida de Python, Git e ffmpeg se faltar. Sem GPU NVIDIA roda, mas devagar.
 
 ---
 
 ## O que é
 
-Um estúdio de voz que roda **100% na sua máquina**, sem nuvem, sem custo de inferência,
-sem telemetria. Você abre no navegador (`http://127.0.0.1:7800`), grava ou manda um
-clipe da sua voz (5 a 180 segundos), e o app clona. Também desenha voz a partir de
-descrição textual, transcreve, compara motores e serve de agente para o WhatsApp.
+Um estúdio de voz que roda **100% na sua máquina**. Você abre no navegador
+(`http://127.0.0.1:7800`), manda um clipe da sua voz (5 a 180 segundos) e o app
+clona. Também desenha voz por descrição textual, transcreve, traduz, dubla e serve
+de agente.
+
+**Tradução e dublagem** são o foco: sobe um áudio em português, sai em inglês, na
+voz escolhida, com a trilha de fundo preservada e a fala encaixada no tempo do
+original. Quem traduz é um modelo local (melhor qualidade) com o Argos de reserva.
 
 O motor que ficou melhor no ouvido (OmniVoice) tem pesos **CC-BY-NC** — não serve
 para uso comercial. Para vender, use VoxCPM2 (Apache-2.0) ou Qwen3-TTS (Apache-2.0).
@@ -19,48 +62,66 @@ A tela avisa isso.
 
 ---
 
-## Instalação mínima
+## Instalação manual (pra quem vai mexer no código)
 
-### Pré-requisitos
-
-| item | mínimo | por quê |
-|---|---|---|
-| Windows | 10/11 | testado só aqui |
-| Python | 3.11+ | exigência da base |
-| **ffmpeg** | obrigatório | corta silêncio, mede duração, normaliza — é o que mais melhora a clonagem (medido: 0,8025 com preparo contra 0,7404 sem) |
-| GPU NVIDIA | 8 GB VRAM | o estúdio usa ~6 GB; 6 GB não dá folga pro Windows |
-| RAM | 16 GB | consome ~1,3 GB numa geração |
-| Disco livre | 20 GB | 9 GB ambiente + 2,9 GB transcrição + pesos + áudios |
-| Internet | só na instalação | depois roda offline (provado: zero conexões com `HF_HUB_OFFLINE=1`) |
-
-### Passos
+O instalador de 1 clique é o caminho recomendado. Se preferir na mão:
 
 ```powershell
-# 1) Clona
+# 1) Clone este app
 git clone https://github.com/gabrielkendy/eleven-audio.git
 cd eleven-audio
 
-# 2) Instala ffmpeg (precisa uma vez)
-winget install Gyan.FFmpeg
-# ou: choco install ffmpeg  /  scoop install ffmpeg
-
-# 3) Cria venv e instala
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -U pip
-pip install -r requirements.txt
-
-# 4) Baixa a base VoiceStudio (AGPL-3.0, imutável, serve na porta 3900)
-git clone https://github.com/gabrielkendy/voice-studio-base.git ../voice-studio-base
-cd ../voice-studio-base
-.\scripts\subir-base.ps1   # sobe em modo offline, sem telemetria
-
-# 5) Volta pro estúdio e liga tudo
+# 2) A base (AGPL-3.0). Ela NÃO é modificada: o app fala com ela pela rede local.
+git clone --depth 1 https://github.com/debpalash/VoiceStudio.git ..\base-voicestudio
+cd ..\base-voicestudio
+uv sync --python 3.13        # usa o índice de CUDA e as versões do uv.lock
 cd ..\eleven-audio
-.\scripts\ligar-tudo.ps1   # sobe base (3900) + app (7800) e abre o navegador
+
+# 3) O app
+uv venv .venv --python 3.13
+uv pip install --python .venv -r requirements.txt
+
+# 4) Sobe os dois e abre o navegador
+instalador\ABRIR.bat
 ```
 
 Pronto. A tela abre em `http://127.0.0.1:7800`.
+
+> **ffmpeg** precisa estar no PATH. `winget install Gyan.FFmpeg` resolve.
+
+---
+
+## Documentação
+
+Os documentos técnicos ficam em **[`docs/`](docs/)**:
+
+| | |
+|---|---|
+| [`GUIA-DE-USO.md`](GUIA-DE-USO.md) | como usar cada aba, na prática |
+| [`docs/00-BLUEPRINT.md`](docs/00-BLUEPRINT.md) | o plano completo do produto |
+| [`docs/01-arquitetura.md`](docs/01-arquitetura.md) a [`docs/04-frontend.md`](docs/04-frontend.md) | arquitetura, stack, backend, frontend |
+| [`docs/05-dados.md`](docs/05-dados.md) · [`docs/06-seguranca.md`](docs/06-seguranca.md) | dados e segurança |
+| [`docs/07-integracoes.md`](docs/07-integracoes.md) · [`docs/08-deploy-local.md`](docs/08-deploy-local.md) | integrações e deploy local |
+| [`docs/09-metodo-de-construcao.md`](docs/09-metodo-de-construcao.md) · [`docs/10-checklist.md`](docs/10-checklist.md) | método de construção e checklist |
+| [`docs/CONTRATO-REAL-DA-BASE.md`](docs/CONTRATO-REAL-DA-BASE.md) | o que a base aceita de verdade, medido |
+| [`docs/REQUISITOS.md`](docs/REQUISITOS.md) | requisitos de máquina, medidos |
+
+---
+
+## Licenças e créditos
+
+Este projeto usa trabalho de terceiros, e os créditos são obrigatórios.
+
+| componente | licença | observação |
+|---|---|---|
+| **VoiceStudio** ([debpalash/VoiceStudio](https://github.com/debpalash/VoiceStudio)) | **AGPL-3.0** | o motor. Não é modificado; conversa por rede local |
+| **OmniVoice** ([k2-fsa/OmniVoice](https://huggingface.co/k2-fsa/OmniVoice)) | código Apache-2.0 · **pesos CC-BY-NC** | grátis pra usar e repassar, **proibido vender** |
+| faster-whisper (Systran) | MIT | transcrição |
+| speechbrain (ECAPA) | Apache-2.0 | análise de voz |
+| demucs | MIT | separação de trilha |
+| **este app** | **MIT** | use, copie, modifique, venda |
+
+Ver [`NOTICE.md`](NOTICE.md) para a atribuição completa.
 
 ---
 

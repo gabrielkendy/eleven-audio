@@ -74,6 +74,8 @@ function ViaWinget([string]$id, [string]$descricao) {
 # Por isso a faixa preferida e 3.11 a 3.13, e o 3.14+ so entra como ultimo recurso.
 $SCRIPT:PyMin = 11
 $SCRIPT:PyMax = 13
+# versao que o uv vai baixar e gerenciar para a base (independente do sistema)
+$SCRIPT:PyAlvoBase = '3.13'
 
 # Descarta Python que pertence ao ambiente privado de OUTRO programa (um venv).
 # Sem isto o instalador pega o primeiro python do PATH, que pode ser o de um app
@@ -317,50 +319,107 @@ function Passo4_Ambientes {
     $py = $script:Py.Exe
 
     # ---- base ----
+    # O uv cuida do ambiente E do interpretador. Ele baixa um Python proprio
+    # (gerenciado, fora do sistema) na versao exata que funciona, sem mexer no
+    # Python que a pessoa ja usa. Por isso nao criamos o venv na mao aqui.
     $venvBase = Join-Path $script:PastaBase '.venv'
     if (Test-Path (Join-Path $venvBase 'Scripts\python.exe')) {
         Ok 'ambiente da base ja existe'
         Nota 'se der erro de modulo faltando mais tarde, apague a pasta .venv da base e rode de novo'
     } else {
-        Write-Host '          criando o ambiente da base...' -ForegroundColor DarkGray
-        & $py -m venv $venvBase
-        if ($LASTEXITCODE -ne 0) { Mal 'nao consegui criar o ambiente da base'; return $false }
+        # NAO criar o venv com o python do sistema aqui. O uv escolhe e baixa o
+        # interpretador dele (gerenciado), na versao que funciona com o torch.
+        # Criar antes com o python do PATH foi o que deixaria o ambiente com a
+        # versao errada — e o erro so apareceria no meio do uv sync.
 
-        $pipBase = Join-Path $venvBase 'Scripts\python.exe'
+        # A base instala com UV, nao com pip — e a diferenca e funcional.
+        # O pyproject dela aponta torch/torchaudio/torchvision para um INDICE
+        # PROPRIO de CUDA ([tool.uv.sources]) e trava as versoes testadas em
+        # [tool.uv] (torch==2.8.0). O pip IGNORA as duas coisas: pegaria um torch
+        # qualquer do PyPI, possivelmente sem CUDA, e a base quebraria depois.
+        # `uv sync` le o uv.lock e instala exatamente o conjunto testado.
+        if (-not (TemComando 'uv')) {
+            Falta 'uv (instalador de pacotes que a base usa)'
+            if (Perguntar 'Posso instalar o uv agora?') {
+                try {
+                    & powershell -NoLogo -NoProfile -ExecutionPolicy Bypass `
+                        -Command "irm https://astral.sh/uv/install.ps1 | iex" | Out-Null
+                    $env:PATH = "$env:USERPROFILE\.local\bin;" +
+                                [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
+                                [Environment]::GetEnvironmentVariable('Path', 'User')
+                } catch { }
+            }
+            if (-not (TemComando 'uv')) {
+                Mal 'o uv nao esta disponivel'
+                Nota 'instale por: winget install --id astral-sh.uv -e'
+                return $false
+            }
+        }
+        Ok "uv $((& uv --version) -replace 'uv ','')"
+
         Write-Host '          instalando as dependencias da base (alguns GB, demora)...' -ForegroundColor DarkGray
         Nota 'o torch com CUDA e o maior pacote, uns 3 GB'
+        Nota 'o uv cria o .venv sozinho, com a versao exata que o projeto testou'
 
-        & $pipBase -m pip install --upgrade pip --quiet
-        if (Test-Path (Join-Path $script:PastaBase 'requirements.txt')) {
-            & $pipBase -m pip install -r (Join-Path $script:PastaBase 'requirements.txt')
-        } else {
-            # a base declara tudo no pyproject
-            & $pipBase -m pip install -e $script:PastaBase
+        Push-Location $script:PastaBase
+        try {
+            & uv sync --frozen --python $($SCRIPT:PyAlvoBase)
+            if ($LASTEXITCODE -ne 0) {
+                Nota 'a primeira tentativa falhou; tentando sem --frozen (pode ajustar versoes)'
+                & uv sync --python $($SCRIPT:PyAlvoBase)
+            }
+        } finally {
+            Pop-Location
         }
         if ($LASTEXITCODE -ne 0) {
             Mal 'falhou ao instalar as dependencias da base'
-            Nota 'rode de novo; o pip continua de onde parou'
+            Nota 'rode de novo; o uv continua de onde parou'
             return $false
         }
         Ok 'ambiente da base pronto'
     }
 
     # ---- app ----
-    $script:PastaApp = Join-Path $PastaInstalacao 'eleven-audio'
-    $venvApp = Join-Path $PastaInstalacao '.venv-app'
+    # O app NAO e uma subpasta de $PastaInstalacao: ele E a pasta que contem este
+    # instalador. Quem baixa o zip do repositorio ja tem o app onde ele deve estar,
+    # entao a raiz do app e o PAI de instalador/. Depender de um nome fixo aqui foi
+    # o defeito que deixaria o app "nao encontrado" em toda instalacao limpa.
+    $script:PastaApp = Split-Path -Parent $PSScriptRoot
+    if (-not (Test-Path (Join-Path $script:PastaApp 'app\servidor.py'))) {
+        # fallback: instalador solto numa pasta junto do app
+        $alternativa = Join-Path $PastaInstalacao 'eleven-audio'
+        if (Test-Path (Join-Path $alternativa 'app\servidor.py')) {
+            $script:PastaApp = $alternativa
+        } else {
+            Mal 'nao achei o app (procurei app\servidor.py)'
+            Nota "procurei em: $(Split-Path -Parent $PSScriptRoot)"
+            Nota 'o instalador precisa estar DENTRO da pasta do app'
+            return $false
+        }
+    }
+    # o venv do app vive dentro da propria pasta do app, nao solto por ai
+    $venvApp = Join-Path $script:PastaApp '.venv'
 
     if (Test-Path (Join-Path $venvApp 'Scripts\python.exe')) {
         Ok 'ambiente do app ja existe'
     } else {
         Write-Host '          criando o ambiente do app...' -ForegroundColor DarkGray
-        & $py -m venv $venvApp
-        $pipApp = Join-Path $venvApp 'Scripts\python.exe'
-        & $pipApp -m pip install --upgrade pip --quiet
         $req = Join-Path $script:PastaApp 'requirements.txt'
-        if (Test-Path $req) {
-            & $pipApp -m pip install -r $req
-        } else {
-            & $pipApp -m pip install fastapi httpx uvicorn python-multipart
+        if (-not (Test-Path $req)) {
+            Mal 'nao achei o requirements.txt do app'
+            Nota "procurei em: $req"
+            return $false
+        }
+        # mesmo caminho da base: uv cria o ambiente e escolhe o interpretador.
+        # O app e leve (fastapi, httpx, uvicorn), entao isto leva segundos.
+        & uv venv $venvApp --python $($SCRIPT:PyAlvoBase)
+        if ($LASTEXITCODE -ne 0) { Mal 'nao consegui criar o ambiente do app'; return $false }
+
+        Push-Location $script:PastaApp
+        try {
+            & uv pip install --python $venvApp -r $req
+        } finally {
+            Pop-Location
         }
         if ($LASTEXITCODE -ne 0) { Mal 'falhou ao instalar as dependencias do app'; return $false }
         Ok 'ambiente do app pronto'
@@ -383,7 +442,12 @@ function Passo5_Atalhos {
 `$PortaBase         = 3900
 `$PortaApp          = 7800
 "@
-    $arqLocal = Join-Path $PastaInstalacao 'local.ps1'
+    # O local.ps1 TEM que ficar na pasta do instalador, porque e ali que o
+    # ABRIR.ps1 e o FECHAR.ps1 procuram (ao lado deles mesmos, via $PSScriptRoot).
+    # Gravar em $PastaInstalacao foi o defeito que faria o launcher responder
+    # "rode o INSTALAR.bat primeiro" para sempre, mesmo com tudo instalado.
+    $arqLocal = Join-Path $PSScriptRoot 'local.ps1'
+    if (-not $PSScriptRoot) { $arqLocal = Join-Path $PastaInstalacao 'instalador\local.ps1' }
     # utf-8 com BOM: o PowerShell 5.1 le sem BOM como ANSI e corrompe acento
     [System.IO.File]::WriteAllText($arqLocal, $conteudoLocal,
         (New-Object System.Text.UTF8Encoding $true))
