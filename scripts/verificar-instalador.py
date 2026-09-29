@@ -146,6 +146,18 @@ def main() -> int:
     conferir("aceita resposta HTTP como servico vivo",
              "if ($_.Exception.Response) { return $true }" in abrir)
 
+    # O ABRIR.bat mora na pasta do instalador, ao lado de quem o cria. Apontar o
+    # atalho (ou a mensagem final) para $PastaInstalacao — que e a pasta de trabalho,
+    # onde entra a base — entrega ao usuario um atalho para arquivo inexistente: ele
+    # clica e nao acontece nada, sem erro nenhum.
+    conferir("o atalho aponta para o ABRIR.bat que existe",
+             "Join-Path $PSScriptRoot 'ABRIR.bat'" in instalar)
+    conferir("nenhuma instrucao aponta para ABRIR.bat em $PastaInstalacao",
+             not re.findall(r"PastaInstalacao .ABRIR", instalar))
+    # e o alvo realmente existe onde o atalho vai procurar
+    conferir("ABRIR.bat existe na pasta do instalador",
+             (INSTALADOR / "ABRIR.bat").exists())
+
     # O PowerShell NAO diferencia maiuscula de minuscula. Um $saida dentro do loop
     # sobrescreveu o parametro $Saida e gravou o relatorio num arquivo com nome da
     # versao do uv. Aqui o relatorio TEM que sair no caminho pedido.

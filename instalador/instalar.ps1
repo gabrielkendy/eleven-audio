@@ -458,14 +458,17 @@ function Passo5_Atalhos {
     try {
         $sh = New-Object -ComObject WScript.Shell
         $lnk = $sh.CreateShortcut($atalho)
-        $lnk.TargetPath = Join-Path $PastaInstalacao 'ABRIR.bat'
-        $lnk.WorkingDirectory = $PastaInstalacao
+        # O ABRIR.bat mora na pasta DESTE script, nao em $PastaInstalacao (que e a
+        # pasta de trabalho, onde entra a base). Apontar para $PastaInstalacao criava
+        # um atalho para arquivo inexistente: o usuario clicava e nada acontecia.
+        $lnk.TargetPath = Join-Path $PSScriptRoot 'ABRIR.bat'
+        $lnk.WorkingDirectory = $PSScriptRoot
         $lnk.Description = 'Estudio de voz local'
         $lnk.Save()
         Ok 'atalho criado na Area de Trabalho'
     } catch {
         Falta 'nao consegui criar o atalho automaticamente'
-        Nota "crie um atalho a mao para: $(Join-Path $PastaInstalacao 'ABRIR.bat')"
+        Nota "crie um atalho a mao para: $(Join-Path $PSScriptRoot 'ABRIR.bat')"
     }
 
     return $true
@@ -495,7 +498,7 @@ try {
     Titulo 'PRONTO'
     Write-Host ''
     Write-Host '   Abra pelo atalho na Area de Trabalho, ou por:' -ForegroundColor White
-    Write-Host "   $(Join-Path $PastaInstalacao 'ABRIR.bat')" -ForegroundColor Gray
+    Write-Host "   $(Join-Path $PSScriptRoot 'ABRIR.bat')" -ForegroundColor Gray
     Write-Host ''
     Write-Host '   Na primeira vez que gerar audio, ele baixa o motor do HuggingFace.' -ForegroundColor Gray
     Write-Host '   O download retoma de onde parou. Nao precisa de conta.' -ForegroundColor Gray

@@ -1,0 +1,91 @@
+MENSAGEM PRONTA PARA ENVIAR AO SEU AMIGO
+(copia daqui pra baixo)
+
+---
+
+Fala! Vou te passar um programa de voz que roda no seu PC. Ele clona voz, gera
+áudio, transcreve, traduz e dubla áudio de um idioma pro outro. Tudo na sua
+máquina: sem conta, sem assinatura, sem nada enviado pra fora.
+
+Baixa aqui:
+
+https://github.com/gabrielkendy/eleven-audio/releases/latest
+
+O arquivo tem 500 KB, é rapidinho. O resto (uns 3 GB de motor de voz) ele baixa
+sozinho depois, durante a instalação.
+
+ANTES DE TUDO: quando o download terminar, clica com o botão direito no arquivo
+ZIP e vai em Propriedades. Se tiver uma caixinha "Desbloquear" (ou "Unblock") no
+rodapé, marca ela e dá OK. Isso evita o Windows travar o instalador depois.
+
+AGORA OS PASSOS:
+
+1. Clica com o botão direito no ZIP e escolhe "Extrair Tudo". Escolhe uma pasta
+   simples, tipo C:\ELEVEN. Não abre de dentro do zip, tem que extrair.
+
+2. Entra na pasta e depois na pasta "instalador". Procura o arquivo INSTALAR.bat
+   e dá dois cliques.
+
+3. O Windows vai abrir uma tela azul dizendo "O Windows protegeu o seu PC".
+   Isso é normal, é porque o arquivo é novo e o Windows não conhece.
+   Clica em "Mais informações" e depois em "Executar assim mesmo".
+
+4. Ele vai fazer umas perguntas. Responde S (de sim) quando ele pedir.
+
+5. Agora é só esperar. Demora de 20 a 40 minutos, porque ele baixa o motor de
+   voz. Pode ir fazendo outra coisa. NÃO FECHA A JANELA PRETA.
+
+6. Quando terminar, vai aparecer um atalho na sua Área de Trabalho. É só dar dois
+   cliques nele. O navegador abre sozinho na tela do programa.
+
+Pra fechar depois, tem o atalho FECHAR na mesma pasta.
+
+SE DER ALGUM ERRO, não precisa entender nada:
+
+Volta na pasta "instalador", procura o arquivo DIAGNOSTICO.bat e dá dois cliques.
+Ele não mexe em nada, só olha o seu PC e grava um relatório na sua Área de
+Trabalho (um arquivo .txt que abre sozinho). Me manda esse arquivo que eu vejo
+exatamente onde parou.
+
+Uma coisa que ajuda: se aparecer alguma mensagem de erro em qualquer momento,
+tira um print da tela e me manda junto.
+
+O PC precisa ter:
+- Windows 10 ou 11, de 64 bits
+- 16 GB de memória
+- 25 GB livres no disco
+- Se tiver placa de vídeo NVIDIA, fica bem mais rápido. Sem ela funciona também,
+  só que gera mais devagar.
+
+Qualquer coisa me chama!
+
+(copia até aqui)
+
+---
+
+O QUE VOCÊ DEVE ESPERAR RECEBER DE VOLTA
+
+Caminho A - deu certo (o normal):
+  Ele diz que abriu a tela. Os áudios gerados ficam na pasta dele.
+
+Caminho B - deu errado:
+  Ele te manda o ELEVEN-AUDIO-diagnostico.txt da Área de Trabalho.
+  Esse arquivo traz: versões de tudo, os Pythons da máquina e qual foi
+  descartado, a placa de vídeo, o que foi instalado, o que responde, os modelos
+  baixados e o fim dos logs. É com isso que eu vejo a tela dele.
+
+PONTOS DE ATRITO QUE JÁ ESTÃO TRATADOS NA MENSAGEM
+
+1. O aviso azul do Windows (SmartScreen). Um .bat baixado da internet sempre
+   dispara isso. Quem não sabe, fecha e desiste. Por isso o passo 3 explica.
+
+2. O "Desbloquear" nas Propriedades. O Windows marca arquivos vindos da internet;
+   sem desbloquear, o PowerShell pode se recusar a rodar os scripts.
+
+3. Extrair o zip. Se ele rodar o INSTALAR.bat de dentro do visualizador de zip,
+   não funciona.
+
+4. A demora. Sem avisar, ele acha que travou e fecha a janela no meio.
+
+5. O Python 3.14. Se a máquina dele tiver só o 3.14, o instalador avisa e oferece
+   o 3.13. Nada a fazer da parte dele.
