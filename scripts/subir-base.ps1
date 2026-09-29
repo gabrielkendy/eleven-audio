@@ -4,10 +4,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Ajustes locais da maquina, os mesmos que o ligar-tudo.ps1 usa. Sem isto este
+# script ignorava o local.ps1 e exigia a variavel de ambiente na mao.
+$AjustesLocais = Join-Path $PSScriptRoot 'local.ps1'
+if (Test-Path -LiteralPath $AjustesLocais) { . $AjustesLocais }
+
+# Ordem: parametro ou variavel de ambiente > ajuste local do repositorio.
+if ([string]::IsNullOrWhiteSpace($BaseDir)) { $BaseDir = $VoiceStudioPadrao }
 if ([string]::IsNullOrWhiteSpace($BaseDir)) {
-    throw 'Defina VOICESTUDIO_DIR com a pasta externa da base VoiceStudio.'
+    throw 'Defina VOICESTUDIO_DIR, ou $VoiceStudioPadrao em scripts\local.ps1, com a pasta externa da base VoiceStudio.'
 }
 
+# O Python e o venv DA BASE: e onde estao torch e torchaudio. Nao troque por um
+# Python do sistema (medido em 29/09/2026: sem torchaudio a base nao sobe).
 $BaseDir = (Resolve-Path -LiteralPath $BaseDir).Path
 $PythonBase = Join-Path $BaseDir '.venv\Scripts\python.exe'
 $EntradaBase = Join-Path $BaseDir 'backend\main.py'
