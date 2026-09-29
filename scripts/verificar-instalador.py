@@ -53,9 +53,14 @@ _OPENER = build_opener(_SemRedirect)
 
 
 def _powershell(comando: str, timeout: int = 300) -> str:
+    # encoding explicito e obrigatorio ao ler saida do PowerShell no Windows.
+    # Com text=True e sem encoding, o Python usa cp1252; caractere fora dela faz a
+    # leitura voltar VAZIA sem excecao, e ai um check como "X nao esta na saida"
+    # passa sem ter medido nada. errors='replace' garante que sempre vem texto.
     proc = subprocess.run(
         ["powershell", "-NoLogo", "-NoProfile", "-Command", comando],
-        capture_output=True, text=True, timeout=timeout, check=False,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=timeout, check=False,
     )
     return (proc.stdout or "") + (proc.stderr or "")
 
@@ -160,9 +165,13 @@ def main() -> int:
     proc = subprocess.run(
         ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass",
          "-File", str(INSTALADOR / "instalar.ps1"), "-SoVerificar"],
-        capture_output=True, text=True, timeout=300, check=False,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=300, check=False,
     )
     saida = (proc.stdout or "") + (proc.stderr or "")
+    # guarda contra falso verde: sem saida, os checks de "nao contem X" passariam
+    conferir("o instalador produziu saida (guarda contra falso verde)", len(saida) > 200,
+             str(len(saida)) + " chars")
     conferir("roda sem estourar", proc.returncode == 0, f"exit {proc.returncode}")
     conferir("passa pelos blocos de conferencia",
              all(m in saida for m in ("Windows", "arquitetura", "Git", "ffmpeg", "disco")))

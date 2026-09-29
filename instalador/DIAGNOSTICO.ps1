@@ -11,7 +11,10 @@
 
 [CmdletBinding()]
 param(
-    [string]$Saida
+    [string]$Saida,
+    # Nao abre o Bloco de Notas no fim. Serve para rodar sem interface (script,
+    # verificacao automatizada) e para quem so quer o arquivo.
+    [switch]$SemAbrir
 )
 
 $ErrorActionPreference = 'Continue'
@@ -315,5 +318,7 @@ Write-Host ''
 Write-Host '   Relatorio gravado em:' -ForegroundColor Green
 Write-Host "   $Saida" -ForegroundColor White
 Write-Host ''
-Write-Host '   Abrindo...' -ForegroundColor Gray
-Start-Process notepad.exe $Saida
+if (-not $SemAbrir) {
+    Write-Host '   Abrindo...' -ForegroundColor Gray
+    Start-Process notepad.exe $Saida
+}
