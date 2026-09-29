@@ -30,8 +30,8 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 RAIZ_PROJETO = Path(__file__).resolve().parents[1]
 INSTALADOR = RAIZ_PROJETO / "instalador"
 
-PS1 = ("instalar.ps1", "ABRIR.ps1", "FECHAR.ps1")
-BAT = ("INSTALAR.bat", "SO-CONFERIR.bat", "ABRIR.bat", "FECHAR.bat")
+PS1 = ("instalar.ps1", "ABRIR.ps1", "FECHAR.ps1", "DIAGNOSTICO.ps1")
+BAT = ("INSTALAR.bat", "SO-CONFERIR.bat", "ABRIR.bat", "FECHAR.bat", "DIAGNOSTICO.bat")
 
 # caminho de quem montou o pacote nao pode ir junto para a comunidade
 PESSOAL = (r"Users\\Gabriel", r"YOUTUBE KENDY", r"\.venvs", r"SÉRIE")
@@ -139,6 +139,21 @@ def main() -> int:
     conferir("sonda nao segue redirect", "MaximumRedirection 0" in abrir)
     conferir("aceita resposta HTTP como servico vivo",
              "if ($_.Exception.Response) { return $true }" in abrir)
+
+    # O PowerShell NAO diferencia maiuscula de minuscula. Um $saida dentro do loop
+    # sobrescreveu o parametro $Saida e gravou o relatorio num arquivo com nome da
+    # versao do uv. Aqui o relatorio TEM que sair no caminho pedido.
+    diag = (INSTALADOR / "DIAGNOSTICO.ps1").read_text(encoding="utf-8")
+    # O PowerShell NAO diferencia maiuscula de minuscula, entao nao da pra separar
+    # "$Saida" (o parametro) de "$saida" (variavel de loop) por caixa. A regra que
+    # funciona: UMA atribuicao, que e a do valor padrao do parametro. Duas ou mais
+    # significa que alguma outra variavel com esse nome esta sobrescrevendo.
+    atribuicoes = re.findall(r"^\s*\$saida\s*=", diag, re.IGNORECASE | re.MULTILINE)
+    conferir("o parametro $Saida nao e sobrescrito por outra variavel",
+             len(atribuicoes) <= 1,
+             f"{len(atribuicoes)} atribuicoes" if len(atribuicoes) > 1 else "so o valor padrao")
+    conferir("o diagnostico grava no caminho recebido",
+             "[System.IO.File]::WriteAllText($Saida" in diag)
 
     print()
     print("=== 4. o instalador roda nesta maquina (-SoVerificar) ===")

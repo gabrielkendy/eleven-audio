@@ -49,6 +49,17 @@ retoma de onde parou**, então pode fechar e voltar depois.
 
 Para encerrar, `FECHAR.bat`. Seus áudios continuam salvos.
 
+### Se algo der errado
+
+Rode **`DIAGNOSTICO.bat`**. Ele **não altera nada**: só olha a máquina e grava um
+relatório na sua Área de Trabalho, que abre sozinho no Bloco de Notas. Mande esse
+arquivo para quem te passou esta pasta — ele diz exatamente onde parou.
+
+O relatório traz: versões de tudo, os Pythons da máquina (e qual foi descartado),
+a placa de vídeo, o que foi instalado, o que está respondendo, os modelos já
+baixados e as últimas linhas de log. **Não tem senha nem nada seu** além dos
+caminhos da sua própria máquina.
+
 ### Dublar (o motivo de existir)
 
 Na aba **Traduzir**, seção **Áudio para áudio**:

@@ -30,6 +30,17 @@ depende do que você escolher na tela).
 
 **Windows 10/11 · sem conta em lugar nenhum · internet só na instalação.**
 
+### Ou deixe a sua IA instalar
+
+Tem Claude Code, Cursor, Codex ou similar? Cole o conteúdo de
+**[`INSTALAR-COM-IA.md`](INSTALAR-COM-IA.md)** na IA. Ela confere a máquina,
+instala, sobe os serviços e **prova que funcionou** — e se algo der errado, sabe
+onde olhar.
+
+O prompt manda a IA usar o instalador testado em vez de improvisar, e explica por
+quê (o `uv`, o índice de CUDA, o caminho do app). IA que reinventa esses passos
+quebra.
+
 ## O que a máquina precisa
 
 | item | mínimo | por quê |
