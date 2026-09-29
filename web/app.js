@@ -156,3 +156,35 @@ async function atualizarRodape() {
 montarAreas();
 atualizarRodape();
 window.addEventListener("estudio:atualizar-estado", atualizarRodape);
+
+// ---------------------------------------------------------------------------
+// Conserto no arquivo nao chega em aba que ja estava aberta: o navegador nao
+// busca o JS de novo. A pessoa abre pelo atalho, a aba velha esta la, e ela ve
+// o defeito que a gente ja corrigiu. Aconteceu duas vezes seguidas.
+//
+// Aqui o app pergunta de tempo em tempo se a tela que esta no disco mudou. Se
+// mudou, ele se recarrega sozinho. Assim nenhum conserto fica invisivel, e
+// ninguem precisa saber o que e cache.
+let versaoDaTela = null;
+
+async function conferirVersao() {
+  if (document.visibilityState === "hidden") return;
+  try {
+    const resposta = await fetch("/api/versao", { cache: "no-store" });
+    if (!resposta.ok) return;
+    const { versao } = await resposta.json();
+    if (!versao) return;
+    if (versaoDaTela === null) {
+      versaoDaTela = versao;
+      return;
+    }
+    if (versao !== versaoDaTela) location.reload();
+  } catch (_) {
+    // Sem resposta: o app segue funcionando com a tela que ja tem.
+  }
+}
+
+conferirVersao();
+setInterval(conferirVersao, 20000);
+document.addEventListener("visibilitychange", conferirVersao);
+window.addEventListener("focus", conferirVersao);

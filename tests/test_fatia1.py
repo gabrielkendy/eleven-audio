@@ -101,3 +101,40 @@ def test_contrato_da_fatia_um_e_shell_de_areas(tmp_path: Path) -> None:
     assert "window.AREAS.gerar" in (raiz / "web/gerar.js").read_text(
         encoding="utf-8"
     )
+
+def test_versao_da_tela_existe_e_e_estavel(tmp_path: Path) -> None:
+    """O carimbo que faz a aba velha se recarregar sozinha.
+
+    Medido em 29/09/2026: conserto de JS nao chegava em quem ja estava com a aba
+    aberta, porque o navegador nao busca o arquivo de novo. A pessoa via o
+    defeito antigo e reportava de novo. O carimbo e a base do conserto: sem ele,
+    o vigia do `app.js` nao tem o que comparar e a tela volta a mentir em
+    silencio.
+    """
+    cliente, _ = _cliente(tmp_path)
+
+    primeira = cliente.get("/api/versao").json()["versao"]
+    segunda = cliente.get("/api/versao").json()["versao"]
+
+    assert primeira, "sem carimbo, o vigia da tela nao tem o que comparar"
+    assert len(primeira) == 12
+    assert all(c in "0123456789abcdef" for c in primeira)
+    assert primeira == segunda, "o carimbo nao pode mudar sozinho entre duas leituras"
+
+
+def test_versao_muda_quando_a_tela_muda(tmp_path: Path) -> None:
+    """Se o carimbo nao muda, o vigia nunca dispara e o defeito volta a ser invisivel."""
+    cliente, _ = _cliente(tmp_path)
+    antes = cliente.get("/api/versao").json()["versao"]
+
+    marca = Path(__file__).resolve().parents[1] / "web" / "_carimbo-de-teste.tmp"
+    try:
+        marca.write_text("teste", encoding="utf-8")
+        durante = cliente.get("/api/versao").json()["versao"]
+    finally:
+        marca.unlink(missing_ok=True)
+
+    depois = cliente.get("/api/versao").json()["versao"]
+    assert durante != antes, "carimbo igual depois de mexer na tela: o vigia nao dispara"
+    assert depois != durante, "a volta do arquivo precisa mexer no carimbo tambem"
+

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
@@ -57,6 +58,27 @@ def criar_app(
         if requisicao.url.path == "/" or requisicao.url.path.startswith("/web/"):
             resposta.headers["Cache-Control"] = "no-store, must-revalidate"
         return resposta
+
+
+    @aplicacao.get("/api/versao")
+    def versao() -> dict[str, str]:
+        """Impressao digital do que esta na tela agora.
+
+        Sem isto, conserto de JS nao chega em quem ja estava com a aba aberta: o
+        navegador nao busca o arquivo de novo, e a pessoa segue vendo o defeito
+        antigo. Foi o que aconteceu duas vezes seguidas aqui. O carimbo muda
+        quando qualquer arquivo de `web/` muda de tamanho ou de horario, e o
+        `app.js` compara de tempo em tempo.
+        """
+        marca = hashlib.sha1()
+        if web.exists():
+            for arquivo in sorted(web.rglob("*")):
+                if arquivo.is_file():
+                    dados = arquivo.stat()
+                    marca.update(
+                        f"{arquivo.relative_to(web)}:{dados.st_mtime_ns}:{dados.st_size}".encode()
+                    )
+        return {"versao": marca.hexdigest()[:12]}
 
     if web.exists():
         aplicacao.mount("/web", StaticFiles(directory=web), name="web")
