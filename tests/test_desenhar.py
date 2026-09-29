@@ -8,6 +8,7 @@ from pathlib import Path
 from threading import Thread
 from typing import ClassVar
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -101,6 +102,13 @@ def _cliente(tmp_path: Path, disponivel: bool = True) -> tuple[TestClient, Threa
     return TestClient(app), base
 
 
+@pytest.mark.skip(
+    reason=(
+        "VoxCPM2 bloqueado em 29/09/2026: gerar com ele derruba a base inteira. "
+        "O desenho de voz depende só dele, então a função está fora até a base ter "
+        "caminho estável. O comportamento atual está em tests/test_bloqueios.py."
+    )
+)
 def test_desenhar_cria_perfil_wav_e_registros(tmp_path: Path) -> None:
     cliente, base = _cliente(tmp_path)
     try:
@@ -147,6 +155,12 @@ def test_desenhar_cria_perfil_wav_e_registros(tmp_path: Path) -> None:
         base.server_close()
 
 
+@pytest.mark.skip(
+    reason=(
+        "VoxCPM2 bloqueado em 29/09/2026 (derruba a base). Hoje a resposta é a recusa "
+        "do bloqueio, coberta em tests/test_bloqueios.py."
+    )
+)
 def test_desenhar_devolve_motivo_literal_do_motor_indisponivel(tmp_path: Path) -> None:
     cliente, base = _cliente(tmp_path, disponivel=False)
     try:

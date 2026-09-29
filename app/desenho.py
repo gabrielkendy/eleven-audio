@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 
+from app import bloqueios
 from app.cofre import abrir
 from app.config import Configuracao
 from app.saidas import gravar_bytes, medir, nome_arquivo, pasta_do_dia
@@ -61,6 +62,11 @@ def _exigir_sucesso(resposta: httpx.Response) -> httpx.Response:
 def criar_voz(config: Configuracao, *, descricao: str, texto_previa: str, motor: str) -> dict[str, Any]:
     if motor != "voxcpm2":
         raise ErroDesenho("O desenho de voz depende do motor VoxCPM2.", 409)
+    # O VoxCPM2 esta bloqueado (app/bloqueios.py): gerar com ele derruba a base. Sem
+    # esta barreira o desenho seguiria pela mesma rota que mata o servico e o usuario
+    # veria o erro generico de conexao depois, sem saber de onde veio.
+    if bloqueio := bloqueios.motivo(motor):
+        raise ErroDesenho(bloqueio, 409)
 
     try:
         with httpx.Client(base_url=config.base_url, timeout=config.timeout_s) as cliente:

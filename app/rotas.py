@@ -11,18 +11,15 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app import ajustes as ajustes_de_qualidade
 from app import base, clonar, cofre, ffmpeg, licencas, marcas, quando, saidas
+from app.bloqueios import MOTORES_BLOQUEADOS
 from app.chatterbox_local import disponivel as chatterbox_disponivel
 from app.chatterbox_local import sintetizar_chatterbox
 from app.config import Configuracao
 from app.motor import sintetizar
 from app.rotas_clonar import LIMITE_UPLOAD_MB
 
-MOTORES_BLOQUEADOS = {
-    # A base anuncia este sidecar como disponível, mas a execução real falha
-    # porque o ambiente isolado não possui o pacote omnivoice. Não alteramos a
-    # base: só impedimos que o adaptador direcione o usuário a uma rota quebrada.
-    "omnivoice-subprocess": "Ambiente isolado incompleto. Use OmniVoice direto até este motor ser reparado.",
-}
+# MOTORES_BLOQUEADOS vem de app/bloqueios.py: o desenho de voz tambem precisa do
+# mesmo motivo, e duas copias do texto divergiriam na primeira mudanca.
 
 # Como cada motor consome a amostra de referencia. A base informa o tamanho do
 # pedaco que aproveita em max_ref_seconds e a forma em ref_strategy. Quando nao

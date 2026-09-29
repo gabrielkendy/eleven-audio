@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app import licencas, rotas
@@ -54,7 +55,37 @@ def test_aviso_so_aparece_quando_proibe() -> None:
     assert licencas.aviso_comercial("motor-que-nao-existe") is None
 
 
-def test_catalogo_traz_licenca_e_aviso(tmp_path: Path) -> None:
+def test_catalogo_traz_licenca_e_aviso(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """O catalogo vem stubado: a suite nao sobe servico nem depende da base estar no ar.
+
+    Antes este teste batia na base de verdade e falhava com KeyError quando ela estava
+    fora do ar — acusando o teste, nao o produto.
+    """
+    catalogo = {
+        "active": "omnivoice",
+        "backends": [
+            {
+                "id": "omnivoice",
+                "display_name": "OmniVoice",
+                "available": True,
+                "supports_cloning": True,
+                "max_ref_seconds": 20.0,
+                "ref_strategy": "best_window",
+                "effective_device": "cuda",
+            },
+            {
+                "id": "voxcpm2",
+                "display_name": "VoxCPM2",
+                "available": True,
+                "supports_cloning": True,
+                "max_ref_seconds": 30.0,
+                "ref_strategy": "head",
+                "effective_device": "cuda",
+            },
+        ],
+    }
+    monkeypatch.setattr(rotas.base, "listar_motores", lambda _config: catalogo)
+
     cliente = _cliente(tmp_path)
     motores = cliente.get("/api/motores").json()
 
@@ -64,6 +95,9 @@ def test_catalogo_traz_licenca_e_aviso(tmp_path: Path) -> None:
     assert por_id["omnivoice"]["aviso_licenca"] is not None
     assert por_id["voxcpm2"]["licenca"]["comercial"] is True
     assert por_id["voxcpm2"]["aviso_licenca"] is None
+    # Bloqueado em 29/09/2026: continua no catalogo (com a licenca certa) mas fora de uso.
+    assert por_id["voxcpm2"]["disponivel"] is False
+    assert "Derruba a base" in por_id["voxcpm2"]["motivo"]
 
 
 def test_geracao_com_motor_nao_comercial_devolve_aviso(tmp_path: Path) -> None:
