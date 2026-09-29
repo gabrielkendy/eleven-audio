@@ -23,6 +23,8 @@ class PedidoTexto(BaseModel):
     texto: str = Field(min_length=1, max_length=20000)
     origem: str = ""
     destino: str
+    # quem traduz: "auto" (modelo local, com Argos de reserva), "llm" ou "argos"
+    motor: str = "auto"
 
 
 class PedidoDeteccao(BaseModel):
@@ -54,7 +56,7 @@ def criar_router(config: Configuracao) -> APIRouter:
     def traduzir_texto(pedido: PedidoTexto) -> dict[str, object]:
         try:
             resultado = traducao.traduzir(
-                pedido.texto, pedido.origem, pedido.destino, config
+                pedido.texto, pedido.origem, pedido.destino, config, motor=pedido.motor
             )
         except traducao.ErroTraducao as erro:
             raise HTTPException(status_code=422, detail=str(erro)) from erro
@@ -140,6 +142,7 @@ def criar_router(config: Configuracao) -> APIRouter:
         origem: Annotated[str, Form()] = "",
         perfil_id: Annotated[str, Form()] = "",
         motor: Annotated[str, Form()] = "",
+        tradutor: Annotated[str, Form()] = "auto",
         velocidade: Annotated[float, Form()] = 1.0,
         semente: Annotated[int, Form()] = 2026,
     ) -> dict[str, object]:
@@ -181,6 +184,7 @@ def criar_router(config: Configuracao) -> APIRouter:
                 perfil_id=perfil_base,
                 origem_idioma=origem,
                 motor=motor_escolhido,
+                tradutor=tradutor,
                 velocidade=velocidade,
                 semente=semente,
             )

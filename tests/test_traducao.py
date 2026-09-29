@@ -82,6 +82,8 @@ def test_catalogo_vem_ordenado_por_nome() -> None:
 def _transporte(
     respostas: dict[str, object],
     instalar: dict[str, list[str]] | None = None,
+    llm: str | None = None,
+    llm_no_thinking: bool = False,
 ) -> httpx.MockTransport:
     """Transporte falso: casa pelo par origem->destino pedido no corpo.
 
@@ -91,12 +93,31 @@ def _transporte(
     `instalar` diz quais pares EXISTEM no catálogo, por origem. Par fora dessa
     lista responde como o Argos responde de verdade para par inexistente:
     "No Argos language pack is available for X → Y".
+
+    `llm` simula o modelo local: quando é texto, o Ollama responde com ele;
+    quando é `None`, o Ollama está fora do ar. `llm_no_thinking` imita os modelos
+    que jogam a resposta no campo `thinking` e deixam `content` vazio.
     """
     catalogo = instalar or {}
 
     def handler(requisicao: httpx.Request) -> httpx.Response:
         corpo = requisicao.read().decode()
         caminho = requisicao.url.path
+
+        # modelo local (Ollama)
+        if caminho == "/api/tags":
+            if llm is None:
+                return httpx.Response(404, json={"error": "ollama fora do ar"})
+            return httpx.Response(200, json={"models": [{"name": "modelo-de-teste"}]})
+        if caminho == "/api/chat":
+            if llm is None:
+                return httpx.Response(404, json={"error": "ollama fora do ar"})
+            mensagem = (
+                {"role": "assistant", "content": "", "thinking": llm}
+                if llm_no_thinking
+                else {"role": "assistant", "content": llm}
+            )
+            return httpx.Response(200, json={"message": mensagem})
 
         # o catálogo responde diferente do tradutor
         if caminho.endswith(("/packs/install", "/packs/status")):
@@ -149,11 +170,13 @@ def test_traduz_direto(tmp_path: Path) -> None:
     config = _config(tmp_path)
     transporte = _transporte({"pt->en": "Good morning."})
 
-    r = traducao.traduzir("Bom dia.", "pt", "en", config, transporte)
+    # motor="argos" fixa o tradutor offline: o teste mede a cascata, nao o modelo
+    r = traducao.traduzir("Bom dia.", "pt", "en", config, transporte, motor="argos")
 
     assert r["texto"] == "Good morning."
     assert r["caminho"] == ["pt", "en"]
     assert r["saltos"] == 1
+    assert r["motor"] == "Argos"
     assert r["observacao"] is None
 
 
@@ -364,6 +387,89 @@ def test_instalar_pacotes_recusa_origem_igual_ao_destino(tmp_path: Path) -> None
     """`pb` e `pt-br` são o mesmo idioma: pedir os dois não faz sentido."""
     with pytest.raises(traducao.ErroTraducao):
         traducao.instalar_pacotes("pb", ["pt-br"], _config(tmp_path), _transporte({}))
+
+
+def test_motor_auto_usa_o_modelo_local(tmp_path: Path) -> None:
+    """Medido: o modelo local acerta tempo verbal e naturalidade que o Argos erra.
+
+    O caso que motivou: "A gente resolve o problema do cliente" saía como
+    "We'll solve" (futuro) no Argos, e virou hábito no modelo local.
+    """
+    config = _config(tmp_path)
+    # o Argos responderia outra coisa, para dar para saber quem entrou
+    transporte = _transporte({"pt->en": "TEXTO DO ARGOS"}, llm="We solve the customer's problem.")
+
+    r = traducao.traduzir("A gente resolve o problema do cliente.", "pt", "en", config, transporte)
+
+    assert r["texto"] == "We solve the customer's problem."
+    assert r["motor"] == "modelo local"
+    assert r["observacao"] is None, "sem queda, sem aviso"
+
+
+def test_motor_argos_nao_usa_o_modelo_local(tmp_path: Path) -> None:
+    """Quem quer o caminho rápido e offline não pode ser surpreendido pelo modelo."""
+    config = _config(tmp_path)
+    transporte = _transporte({"pt->en": "TEXTO DO ARGOS"}, llm="TEXTO DO MODELO")
+
+    r = traducao.traduzir("Bom dia.", "pt", "en", config, transporte, motor="argos")
+
+    assert r["texto"] == "TEXTO DO ARGOS"
+    assert r["motor"] == "Argos"
+
+
+def test_modelo_local_fora_do_ar_cai_no_argos_e_avisa(tmp_path: Path) -> None:
+    """Sem o modelo, a tradução ainda sai, mas a resposta tem que dizer que caiu."""
+    config = _config(tmp_path)
+    transporte = _transporte({"pt->en": "Good morning."})  # llm=None: Ollama fora
+
+    r = traducao.traduzir("Bom dia.", "pt", "en", config, transporte)
+
+    assert r["texto"] == "Good morning."
+    assert r["motor"] == "Argos"
+    assert r["observacao"] and "modelo local" in r["observacao"], r["observacao"]
+
+
+def test_modelo_local_responde_no_campo_thinking(tmp_path: Path) -> None:
+    """Medido: alguns modelos locais deixam `content` vazio e põem tudo em `thinking`."""
+    config = _config(tmp_path)
+    transporte = _transporte({}, llm="Good morning.", llm_no_thinking=True)
+
+    r = traducao.traduzir("Bom dia.", "pt", "en", config, transporte)
+
+    assert r["texto"] == "Good morning."
+    assert r["motor"] == "modelo local"
+
+
+@pytest.mark.parametrize(
+    ("bruto", "esperado"),
+    [
+        ("Translation: Good morning.", "Good morning."),
+        ('"Good morning."', "Good morning."),
+        ("“Good morning.”", "Good morning."),
+        ("```\nGood morning.\n```", "Good morning."),
+        ("Good morning.", "Good morning."),
+        ("  Good morning.  ", "Good morning."),
+    ],
+)
+def test_limpa_o_que_o_modelo_cola_em_volta(bruto: str, esperado: str) -> None:
+    """Modelo pequeno às vezes põe rótulo, aspas ou cerca de código.
+
+    Em dublagem isso vira áudio falado, então tem que sumir antes da voz.
+    """
+    assert traducao._limpar_saida_do_modelo(bruto) == esperado
+
+
+def test_modelo_local_vazio_vira_erro_tratado(tmp_path: Path) -> None:
+    """Resposta vazia não pode virar áudio com a palavra errada."""
+    config = _config(tmp_path)
+    transporte = _transporte({"pt->en": "Good morning."}, llm="   ")
+
+    r = traducao.traduzir("Bom dia.", "pt", "en", config, transporte)
+
+    # caiu para o Argos em vez de devolver vazio
+    assert r["texto"] == "Good morning."
+    assert r["motor"] == "Argos"
+    assert r["observacao"] and "modelo local" in r["observacao"]
 
 
 def test_pack_faltando_vira_mensagem_util(tmp_path: Path) -> None:

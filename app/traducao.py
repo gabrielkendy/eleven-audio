@@ -526,14 +526,117 @@ def _fontes_candidatas(fonte: str) -> list[str]:
     return [fonte]
 
 
+OLLAMA_PADRAO = "http://127.0.0.1:11434"
+
+# Instrução medida: com estas regras o modelo local acertou o que o Argos errava.
+# O caso que motivou: "A gente resolve o problema do cliente" saía como
+# "We'll solve" (futuro) no Argos, e vira hábito com o modelo. Em dublagem, tempo
+# verbal errado se ouve na hora.
+_INSTRUCAO_DUBLAGEM = (
+    "You are a professional dubbing translator. Translate the {origem} text below "
+    "into natural spoken {destino} for a voice-over.\n"
+    "Rules:\n"
+    "- Keep the meaning and the tone. Sound like a person talking, not a document.\n"
+    "- Keep proper names as they are.\n"
+    "- Keep the same tense as the original. Habitual present stays habitual present.\n"
+    "- Do not add, explain or summarize. Translate everything.\n"
+    "- Output ONLY the translation. No notes, no quotes, no alternatives.\n\n"
+    "Text:\n{texto}"
+)
+
+
+def _traduzir_com_llm(
+    texto: str,
+    fonte: str,
+    alvo: str,
+    config: Configuracao,
+    transporte: httpx.BaseTransport | None = None,
+    endereco_ollama: str | None = None,
+) -> str:
+    """Traduz com o modelo local. Melhor que o Argos em contexto e tempo verbal."""
+    endereco = endereco_ollama or OLLAMA_PADRAO
+    instrucao = _INSTRUCAO_DUBLAGEM.format(
+        origem=nome(fonte), destino=nome(alvo), texto=texto
+    )
+    try:
+        with httpx.Client(timeout=600, transport=transporte) as cliente:
+            if not _ollama_disponivel(endereco, transporte):
+                raise ErroTraducao("o modelo local nao esta respondendo")
+            modelo = _modelo_ollama(cliente, endereco)
+            resposta = cliente.post(
+                f"{endereco.rstrip('/')}/api/chat",
+                json={
+                    "model": modelo,
+                    "messages": [{"role": "user", "content": instrucao}],
+                    "stream": False,
+                    "options": {"temperature": 0.2},
+                },
+            )
+    except httpx.HTTPError as erro:
+        raise ErroTraducao(f"modelo local fora do ar: {erro}") from erro
+
+    if resposta.is_error:
+        raise ErroTraducao(f"o modelo local recusou: {resposta.status_code}")
+
+    try:
+        mensagem = resposta.json().get("message", {})
+    except (json.JSONDecodeError, AttributeError) as erro:
+        raise ErroTraducao("o modelo local devolveu resposta invalida") from erro
+
+    # Alguns modelos respondem no `content` e outros jogam tudo no `thinking`.
+    saida = str(mensagem.get("content") or "").strip()
+    if not saida:
+        saida = str(mensagem.get("thinking") or "").strip()
+    if not saida:
+        raise ErroTraducao("o modelo local nao devolveu texto")
+
+    return _limpar_saida_do_modelo(saida)
+
+
+def _limpar_saida_do_modelo(saida: str) -> str:
+    """Tira o que modelo pequeno costuma colar em volta da tradução.
+
+    Medido: mesmo instruído a só traduzir, ele às vezes abre com "Translation:",
+    cerca com aspas ou escreve um preâmbulo antes. Em dublagem isso vira áudio
+    falado, então some antes de chegar na voz.
+    """
+    limpo = saida.strip()
+    # remove cercas de código
+    if limpo.startswith("```"):
+        linhas = [l for l in limpo.splitlines() if not l.strip().startswith("```")]
+        limpo = "\n".join(linhas).strip()
+    # remove rotulo inicial
+    for rotulo in ("Translation:", "Tradução:", "Traducao:", "English:", "Inglês:"):
+        if limpo.lower().startswith(rotulo.lower()):
+            limpo = limpo[len(rotulo):].strip()
+    # remove aspas que envolvem tudo. As curvas sao um PAR DIFERENTE ("..."),
+    # entao comparar primeiro com ultimo nao pega: tem que casar o par.
+    pares_iguais = ('"', "'")
+    if len(limpo) > 1 and limpo[0] == limpo[-1] and limpo[0] in pares_iguais:
+        limpo = limpo[1:-1].strip()
+    elif len(limpo) > 1:
+        for abre, fecha in (("“", "”"), ("‘", "’"), ("«", "»")):
+            if limpo.startswith(abre) and limpo.endswith(fecha):
+                limpo = limpo[1:-1].strip()
+                break
+    return limpo
+
+
 def traduzir(
     texto: str,
     origem: str,
     destino: str,
     config: Configuracao,
     transporte: httpx.BaseTransport | None = None,
+    motor: str = "auto",
+    endereco_ollama: str | None = None,
 ) -> dict[str, Any]:
     """Traduz um texto, com cascata pelo inglês quando o par direto não existe.
+
+    `motor` escolhe quem traduz:
+      - `"auto"` (padrão): o modelo local se estiver no ar, senão o Argos.
+      - `"llm"`: só o modelo local (cai no Argos se ele não responder, e avisa).
+      - `"argos"`: só o Argos, que é mais rápido e roda sem o modelo carregado.
 
     Devolve o texto traduzido e por qual caminho passou, porque esconder a
     cascata seria esconder uma perda de qualidade de quem usa.
@@ -567,6 +670,27 @@ def traduzir(
             "observacao": "origem e destino iguais, texto devolvido sem alteração",
         }
 
+    # 0) modelo local primeiro. Medido em 29/09/2026: ele acerta tempo verbal e
+    #    naturalidade que o Argos erra ("We'll solve" virava hábito certo). Se não
+    #    responder, o Argos assume e a resposta diz por quê, em vez de fingir.
+    aviso_llm: str | None = None
+    if motor in ("auto", "llm"):
+        try:
+            traduzido = _traduzir_com_llm(
+                texto, fonte, alvo, config, transporte, endereco_ollama
+            )
+            return {
+                "texto": traduzido,
+                "origem": fonte,
+                "destino": alvo,
+                "caminho": [fonte, alvo],
+                "saltos": 1,
+                "motor": "modelo local",
+                "observacao": None,
+            }
+        except ErroTraducao as erro_llm:
+            aviso_llm = str(erro_llm)
+
     # 1) tenta o par direto, aceitando a variante irmã como origem
     erro_direto: ErroTraducao | None = None
     for candidata in _fontes_candidatas(fonte):
@@ -578,7 +702,11 @@ def traduzir(
                 "destino": alvo,
                 "caminho": [fonte, alvo],
                 "saltos": 1,
-                "observacao": None,
+                "motor": "Argos",
+                "observacao": (
+                    f"o modelo local não entrou ({aviso_llm}); traduzido pelo Argos"
+                    if aviso_llm else None
+                ),
             }
         except ErroTraducao as erro:
             erro_direto = erro
@@ -612,9 +740,11 @@ def traduzir(
         "caminho": [fonte, PIVO, alvo],
         "saltos": 2,
         "intermediario": intermediario,
+        "motor": "Argos",
         "observacao": (
             f"não existe par direto de {nome(fonte)} para {nome(alvo)}; "
             f"o texto passou pelo inglês, o que pode reduzir a qualidade"
+            + (f". O modelo local não entrou ({aviso_llm})" if aviso_llm else "")
         ),
     }
 

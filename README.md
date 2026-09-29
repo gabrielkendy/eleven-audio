@@ -192,6 +192,31 @@ próprio e servidor separado na porta 7860, e está **não instalado** nesta má
 Fazendo aqui, o áudio sai na **sua voz clonada**, que é o ponto do projeto, e não
 numa voz genérica de dublador.
 
+### Quem traduz: o modelo local ou o Argos
+
+Há dois tradutores e você escolhe na tela, no campo **Tradutor**:
+
+| opção | o que é | quando usar |
+|---|---|---|
+| **Modelo local, com Argos de reserva** (padrão) | Usa o modelo do Ollama; se ele não estiver no ar, o Argos assume e a resposta diz isso | uso normal |
+| **Só o modelo local** | Exige o modelo; qualidade máxima de texto | quando o texto importa mais que a velocidade |
+| **Só o Argos** | Offline, instantâneo, roda sem carregar modelo | quando quer velocidade ou está sem o Ollama |
+
+**Medido em 29/09/2026, no mesmo trecho** ("A gente resolve o problema do cliente
+antes de falar de preço, entendeu? É isso que segura a parceria."):
+
+| | tradução |
+|---|---|
+| modelo local | "We solve **the customer's** problem before we **even** talk about price, **got it**? And that's what **keeps** the partnership **going**." |
+| Argos | "We solve **the client's** problem before we talk about price, **understand**? That's what **holds** the partnership." |
+
+O Argos erra tempo verbal: "A gente resolve" (hábito) saía como "We'll solve"
+(futuro). Em dublagem isso se ouve na hora. O Argos continua sendo o mais rápido e
+o que funciona sem modelo carregado.
+
+O texto longo também passa: 238 palavras traduzidas inteiras em **8 s**, sem truncar
+nem encher linguiça.
+
 ### Pacotes de idioma (a tela baixa o que falta)
 
 O tradutor é offline e cada par de idiomas é um pacote que baixa uma vez e fica na

@@ -154,11 +154,17 @@ def dublar(
     perfil_id: str | None = None,
     origem_idioma: str = "",
     motor: str = "omnivoice",
+    tradutor: str = "auto",
     velocidade: float = 1.0,
     semente: int | None = 2026,
     transporte: Any = None,
 ) -> dict[str, Any]:
-    """Dubla: áudio de entrada -> áudio no idioma de destino, na voz escolhida."""
+    """Dubla: áudio de entrada -> áudio no idioma de destino, na voz escolhida.
+
+    `motor` é o motor de VOZ (quem fala). `tradutor` é quem traduz o texto:
+    `"auto"` usa o modelo local e cai no Argos, `"llm"` pede o modelo local,
+    `"argos"` usa só o tradutor offline.
+    """
     alvo = traducao.normalizar(destino_idioma)
     if not alvo:
         raise ErroDublagem("escolha o idioma de destino")
@@ -208,7 +214,9 @@ def dublar(
 
     # 2) tradução
     try:
-        traducao_feita = traducao.traduzir(texto_original, fonte, alvo, config, transporte)
+        traducao_feita = traducao.traduzir(
+            texto_original, fonte, alvo, config, transporte, motor=tradutor
+        )
     except traducao.ErroTraducao as erro:
         # Sem este tratamento, qualquer falha do tradutor (pacote de idioma
         # faltando, por exemplo) subia como erro interno e a tela mostrava
@@ -275,6 +283,7 @@ def dublar(
         "tamanho_bytes": medicao["tamanho_bytes"],
         "duracao_geracao_s": round(sum(tempos), 6),
         "motor": motor,
+        "tradutor": traducao_feita.get("motor", tradutor),
         "perfil_id": perfil_id,
         # Não reportamos o `language` da base como "detectado": ele é eco do que
         # enviamos, não detecção. O que vale é como a origem foi decidida.

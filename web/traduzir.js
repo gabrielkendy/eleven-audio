@@ -22,6 +22,9 @@ window.AREAS.push({
           <label class="chip">Para
             <select data-idioma-destino></select>
           </label>
+          <label class="chip">Tradutor
+            <select data-tradutor-texto></select>
+          </label>
           <button type="button" data-traduzir>Traduzir</button>
         </div>
         <p class="aviso" role="status" data-estado-texto>Escolha os idiomas e clique em traduzir.</p>
@@ -64,6 +67,9 @@ window.AREAS.push({
           </label>
         </div>
         <div class="linha-acao">
+          <label class="chip">Tradutor
+            <select data-tradutor-dub></select>
+          </label>
           <label class="chip">Motor
             <select data-motor-dub></select>
           </label>
@@ -179,6 +185,29 @@ window.AREAS.push({
     // áudio errado sem avisar.
     const SO_PORTUGUES = new Set(["chatterbox-ptbr"]);
     const IDIOMAS_PT = new Set(["pt", "pb"]);
+
+    // Quem traduz. Medido em 29/09/2026, no mesmo texto:
+    //   modelo local: "...isn't just selling. We solve the customer's problem
+    //                  before we even talk about price, got it? And that's what
+    //                  keeps the partnership going."
+    //   Argos:        "...isn't just sell. We solve the client's problem before
+    //                  we talk about price, understand? That's what holds the
+    //                  partnership."
+    // O modelo acerta tempo verbal e naturalidade. O Argos responde mais rápido.
+    const TRADUTORES = [
+      { valor: "auto", rotulo: "Modelo local, com Argos de reserva" },
+      { valor: "llm", rotulo: "Só o modelo local (melhor texto)" },
+      { valor: "argos", rotulo: "Só o Argos (mais rápido)" },
+    ];
+
+    function preencherTradutores() {
+      const seletores = raiz.querySelectorAll("[data-tradutor-texto], [data-tradutor-dub]");
+      for (const seletor of seletores) {
+        seletor.replaceChildren(...TRADUTORES.map((t) => new Option(t.rotulo, t.valor)));
+        seletor.value = "auto";
+      }
+    }
+
     let motoresDisponiveis = [];
     let motorAtivo = "";
 
@@ -274,13 +303,16 @@ window.AREAS.push({
             texto,
             origem: raiz.querySelector("[data-idioma-origem]").value,
             destino: raiz.querySelector("[data-idioma-destino]").value,
+            motor: raiz.querySelector("[data-tradutor-texto]").value,
           }),
         }).then(ler);
         traduzidoAtual = r.texto;
         saidaTexto.value = r.texto;
         const segundos = ((performance.now() - inicio) / 1000).toFixed(1).replace(".", ",");
         raiz.querySelector("[data-detalhe-texto]").textContent =
-          `${descrever(r)} · ${segundos} s${r.observacao ? " · " + r.observacao : ""}`;
+          `${descrever(r)} · ${segundos} s` +
+          (r.motor ? ` · por: ${r.motor}` : "") +
+          (r.observacao ? " · " + r.observacao : "");
         raiz.querySelector("[data-resultado-texto]").hidden = false;
         estadoTexto.textContent = "Traduzido.";
       } catch (erro) {
@@ -366,6 +398,7 @@ window.AREAS.push({
         dados.set("origem", raiz.querySelector("[data-idioma-fonte-dub]").value);
         dados.set("perfil_id", perfil);
         dados.set("motor", raiz.querySelector("[data-motor-dub]").value);
+        dados.set("tradutor", raiz.querySelector("[data-tradutor-dub]").value);
         const r = await fetch("/api/dublar", { method: "POST", body: dados }).then(ler);
 
         const player = raiz.querySelector("[data-player-dub]");
@@ -377,6 +410,7 @@ window.AREAS.push({
         raiz.querySelector("[data-detalhe-dub]").textContent =
           `${r.origem_nome} → ${r.destino_nome} · ${r.pedacos} trecho(s) · ` +
           `${Number(r.duracao_audio_s).toFixed(1).replace(".", ",")} s de áudio · ${total} s no total` +
+          (r.tradutor ? ` · traduzido por: ${r.tradutor}` : "") +
           (r.observacao ? ` · ${r.observacao}` : "");
         raiz.querySelector("[data-resultado-dub]").hidden = false;
         estadoDub.textContent = "Pronto. Ouça abaixo.";
@@ -492,6 +526,7 @@ window.AREAS.push({
     });
 
     carregarIdiomas();
+    preencherTradutores();
     carregarVozes();
   },
 });
