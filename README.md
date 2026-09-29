@@ -395,6 +395,64 @@ sobe a base, roda `ligar-tudo.ps1` e usa.
 
 ---
 
+## Armadilhas ao subir os serviços (todas medidas, não teóricas)
+
+Cada uma destas derrubou o estúdio de verdade em 29/09/2026. Vão aqui porque nenhuma
+delas aparece rodando `pytest`: a suíte não sobe serviço.
+
+**1. O Python da base é o venv DELA.** Não use um Python do sistema nem do `uv`. O
+`torch` e o `torchaudio` só existem em `<base>/.venv/Scripts/python.exe`. Com outro
+Python, a base morre na largada:
+
+```
+ModuleNotFoundError: No module named 'torchaudio'
+FATAL: backend startup failed during 'ml_imports'
+```
+
+**2. `.ps1` com acento precisa de BOM.** O caminho da base tem `SÉRIE · ENGENHARIA`.
+O PowerShell 5.1 lê arquivo sem BOM como ANSI, e o caminho vira `S�%RIE ��`. O script
+então procura uma pasta que não existe. Grave o `.ps1` em **UTF-8 com BOM**.
+
+**3. `/health` não responde a HEAD.** Responder HEAD devolve **405**; só GET devolve
+200. Um laço de espera com `-Method Head` nunca detecta a base como pronta, estoura o
+tempo, e aí o script mata a base que estava funcionando. Use `-Method Get`.
+
+**4. `$nome:` quebra o parser do PowerShell.** `"$nome: texto"` é lido como variável
+com qualificador de drive e o script **não roda**. Use `"${nome}: texto"`. Dá para
+conferir sem executar:
+
+```powershell
+$e = $null
+[System.Management.Automation.Language.Parser]::ParseFile('arquivo.ps1', [ref]$null, [ref]$e) | Out-Null
+$e | ForEach-Object { $_.Extent.StartLineNumber, $_.Message }
+```
+
+**5. PYTHONPATH de fora atrapalha, e muito.** Se o estúdio for iniciado por dentro de
+outro programa que define `PYTHONPATH`, o `site-packages` desse outro sombreia o do
+projeto:
+
+```
+ModuleNotFoundError: No module named 'pydantic_core._pydantic_core'
+```
+
+O app e a base têm venv próprio; os launchers zeram `PYTHONPATH` antes de subir.
+
+**6. `.bat` não aguenta caminho com acento.** Depende da página de código do console e
+o caminho quebra em silêncio. Deixe o `.bat` só chamar o `.ps1`, que é o que
+`scripts/ligar-tudo.bat` faz.
+
+**Conferência rápida depois de subir:**
+
+```bash
+curl -s http://127.0.0.1:7800/api/saude
+# {"nosso_app":"ok","base":"ok","ffmpeg":"ok", ...}
+```
+
+Se o app responde mas `base` ou `ffmpeg` não estão `ok`, o problema está embaixo, não
+na interface.
+
+---
+
 ## Contato / Comunidade
 
 - Repositório: https://github.com/gabrielkendy/eleven-audio
