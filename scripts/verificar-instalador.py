@@ -23,6 +23,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
@@ -183,7 +184,56 @@ def main() -> int:
              ("falta:" in saida) or ("tem tudo" in saida))
 
     print()
-    print("=== 5. a sonda de saude, contra os servicos vivos ===")
+    print("=== 5. o diagnostico RODA e o relatorio cai no lugar pedido ===")
+    # Este bloco existe porque o DIAGNOSTICO.ps1 e o que a pessoa manda de volta
+    # quando algo da errado. Se ele gravar no lugar errado ou sair vazio, o
+    # suporte fica sem a informacao — e era exatamente o defeito: o parametro
+    # $Saida era sobrescrito por uma variavel de loop, e o relatorio saia num
+    # arquivo chamado "uv 0.12.0 (...)".
+    destino = Path(tempfile.gettempdir()) / "hermes-verify-relatorio.txt"
+    if destino.exists():
+        destino.unlink()
+    antes = {p.name for p in INSTALADOR.iterdir()}
+
+    proc = subprocess.run(
+        ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass",
+         "-File", str(INSTALADOR / "DIAGNOSTICO.ps1"),
+         "-Saida", str(destino), "-SemAbrir"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=300, check=False,
+    )
+    saida = (proc.stdout or "") + (proc.stderr or "")
+
+    conferir("o diagnostico roda sem estourar", proc.returncode == 0, f"exit {proc.returncode}")
+    conferir("o relatorio existe no caminho pedido", destino.exists(),
+             str(destino) if destino.exists() else "NAO FOI CRIADO")
+    conferir("-SemAbrir nao abre janela (e o que torna isto testavel)",
+             "Abrindo..." not in saida)
+    # o defeito original criava um arquivo com a versao do uv no nome
+    novos = {p.name for p in INSTALADOR.iterdir()} - antes
+    conferir("nenhum arquivo-lixo criado ao lado", not novos, str(novos)[:70])
+
+    if destino.exists():
+        bruto = destino.read_bytes()
+        texto = bruto.decode("utf-8-sig", "replace")
+        secoes = ("QUANDO E ONDE", "SISTEMA", "FERRAMENTAS", "PYTHONS",
+                  "PLACA DE VIDEO", "O QUE FOI INSTALADO", "SERVICOS",
+                  "MODELOS", "ULTIMAS LINHAS DE LOG")
+        faltando = [s for s in secoes if s not in texto]
+        conferir("o relatorio tem as secoes esperadas", not faltando, str(faltando))
+        conferir("o relatorio traz dados reais (nao placeholder)",
+                 len(texto) > 1500 and "windows" in texto.lower(), f"{len(texto)} chars")
+        conferir("gravado em UTF-8 com BOM (abre no Bloco de Notas)",
+                 bruto[:3] == b"\xef\xbb\xbf")
+        # o caminho anunciado no proprio relatorio tem que ser o real
+        linha = re.search(r"^\s*relatorio\s+(.+)$", texto, re.MULTILINE)
+        conferir("o caminho no relatorio e o verdadeiro",
+                 bool(linha) and destino.name in linha.group(1),
+                 linha.group(1).strip()[:60] if linha else "sem linha")
+        destino.unlink()
+
+    print()
+    print("=== 6. a sonda de saude, contra os servicos vivos ===")
     base = _status("http://127.0.0.1:3900/health")
     app = _status("http://127.0.0.1:7800/api/saude")
     if base is None and app is None:
