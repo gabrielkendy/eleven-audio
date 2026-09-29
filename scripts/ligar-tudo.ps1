@@ -72,6 +72,11 @@ try {
         $JobBase = Start-Job -ScriptBlock {
             param($Diretorio, $Python)
             Set-Location -LiteralPath $Diretorio
+            # A base tem o venv dela. PYTHONPATH herdado de fora pode fazer outro
+            # site-packages sombrear o do projeto e derrubar o import na largada.
+            # Medido em 29/09/2026 rodando por dentro de outro app: o import
+            # quebrava com "No module named 'pydantic_core._pydantic_core'".
+            $env:PYTHONPATH = $null
             # Modo offline: sem isto a base consulta o HuggingFace a cada geracao
             # para checar metadados de modelo. Medido em 28/09/2026: com os tres,
             # zero conexao externa, e a geracao continua identica. Os modelos ja
@@ -98,6 +103,8 @@ try {
         $JobApp = Start-Job -ScriptBlock {
             param($Diretorio, $Python)
             Set-Location -LiteralPath $Diretorio
+            # Mesmo motivo da base: o venv do app manda, nao o PYTHONPATH de fora.
+            $env:PYTHONPATH = $null
             & $Python -m uvicorn app.servidor:app --host 127.0.0.1 --port 7800
         } -ArgumentList $RaizProjeto, $PythonProjeto
         $JobsIniciados += $JobApp
