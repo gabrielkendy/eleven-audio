@@ -29,6 +29,11 @@ class PedidoDeteccao(BaseModel):
     texto: str = Field(min_length=1, max_length=20000)
 
 
+class PedidoPacotes(BaseModel):
+    origem: str = Field(min_length=1)
+    destinos: list[str] = Field(min_length=1, max_length=50)
+
+
 def criar_router(config: Configuracao) -> APIRouter:
     rotas = APIRouter()
 
@@ -60,6 +65,39 @@ def criar_router(config: Configuracao) -> APIRouter:
     @rotas.post("/api/traduzir/detectar")
     def detectar(pedido: PedidoDeteccao) -> dict[str, object]:
         return traducao.detectar_idioma(pedido.texto, config)
+
+    @rotas.get("/api/traduzir/pacotes")
+    def ver_pacotes(
+        origem: Annotated[str, Query(min_length=1)],
+        destinos: Annotated[str, Query()] = "",
+    ) -> dict[str, object]:
+        """Mostra quais idiomas já estão baixados saindo de uma origem."""
+        lista = [item for item in destinos.split(",") if item.strip()] or None
+        try:
+            estado = traducao.pacotes_instalados(origem, config, destinos=lista)
+        except traducao.ErroTraducao as erro:
+            raise HTTPException(status_code=422, detail=str(erro)) from erro
+        instalados = sorted(codigo for codigo, pronto in estado.items() if pronto)
+        faltando = sorted(codigo for codigo, pronto in estado.items() if not pronto)
+        return {
+            "origem": traducao.normalizar(origem),
+            "origem_nome": traducao.nome(origem),
+            "instalados": instalados,
+            "faltando": faltando,
+            "instalados_nomes": {c: traducao.nome(c) for c in instalados},
+            "faltando_nomes": {c: traducao.nome(c) for c in faltando},
+            "total": len(estado),
+        }
+
+    @rotas.post("/api/traduzir/pacotes")
+    def baixar_pacotes(pedido: PedidoPacotes) -> dict[str, object]:
+        """Baixa os pacotes de idioma que faltam, sem sair da tela."""
+        try:
+            return traducao.instalar_pacotes(
+                pedido.origem, pedido.destinos, config
+            )
+        except traducao.ErroTraducao as erro:
+            raise HTTPException(status_code=422, detail=str(erro)) from erro
 
     @rotas.get("/api/audio")
     def servir_audio(caminho: Annotated[str, Query(min_length=1)]) -> FileResponse:

@@ -340,6 +340,176 @@ def _extrair_codigo(bruto: str) -> str | None:
     return codigos[0] if codigos else None
 
 
+# A base recusa mais de 32 destinos numa chamada ("List should have at most 32
+# items"). Medido em 29/09/2026 ao pedir os 49 destinos de uma vez. Por isso as
+# consultas e os downloads vão em lotes deste tamanho.
+LOTE_MAXIMO = 32
+
+
+def _em_lotes(itens: list[str], tamanho: int = LOTE_MAXIMO) -> list[list[str]]:
+    return [itens[i:i + tamanho] for i in range(0, len(itens), tamanho)]
+
+
+def pacotes_instalados(
+    origem: str,
+    config: Configuracao,
+    transporte: httpx.BaseTransport | None = None,
+    destinos: list[str] | None = None,
+) -> dict[str, bool]:
+    """Quais pares de idioma já estão baixados, saindo de `origem`.
+
+    O Argos não expõe uma lista global de pacotes: a consulta é por origem, então
+    uma chamada cobre vários destinos. Foi a falta de pacote que derrubou a
+    dublagem em 29/09/2026, por isso isto existe: melhor mostrar o que falta e
+    deixar baixar do que descobrir no meio de uma tradução.
+    """
+    fonte = normalizar(origem)
+    if not fonte or fonte not in IDIOMAS:
+        raise ErroTraducao(f"idioma de origem desconhecido: {origem}")
+    alvos = [normalizar(item) for item in (destinos or IDIOMAS)]
+    alvos = [item for item in alvos if item in IDIOMAS and item != fonte]
+    if not alvos:
+        return {}
+
+    estado: dict[str, bool] = {}
+    for lote in _em_lotes(alvos):
+        corpo = {"source_lang": fonte, "target_langs": lote}
+        try:
+            with httpx.Client(timeout=config.timeout_s, transport=transporte) as cliente:
+                resposta = cliente.post(
+                    f"{config.base_url}/engines/translation/argos/packs/status", json=corpo
+                )
+        except httpx.HTTPError as erro:
+            raise ErroTraducao(f"tradutor fora do ar: {erro}") from erro
+        if resposta.is_error:
+            raise ErroTraducao(_detalhe(resposta))
+
+        try:
+            pares = resposta.json()["pairs"]
+        except (json.JSONDecodeError, KeyError, TypeError) as erro:
+            raise ErroTraducao("a base devolveu uma resposta inválida") from erro
+
+        for par in pares:
+            if par.get("target_lang"):
+                estado[str(par["target_lang"])] = bool(par.get("installed"))
+    return estado
+
+
+def _baixar_um_par(
+    origem: str,
+    destino: str,
+    config: Configuracao,
+    transporte: httpx.BaseTransport | None = None,
+) -> tuple[bool, str]:
+    """Baixa um pacote. Devolve (deu_certo, motivo).
+
+    O motivo distingue "não existe no catálogo" de "falhou por outro motivo",
+    porque o tratamento é diferente: par inexistente se resolve passando pelo
+    inglês, falha de rede se resolve tentando de novo.
+    """
+    corpo = {"source_lang": origem, "target_langs": [destino]}
+    try:
+        with httpx.Client(timeout=max(config.timeout_s, 900), transport=transporte) as cliente:
+            resposta = cliente.post(
+                f"{config.base_url}/engines/translation/argos/packs/install", json=corpo
+            )
+    except httpx.HTTPError as erro:
+        return False, f"tradutor fora do ar: {erro}"
+
+    texto = resposta.text[:400]
+    if resposta.is_error:
+        # Medido: o Argos responde "No Argos language pack is available for pb → fr"
+        # quando o par simplesmente não existe no catálogo. Não é falha de download.
+        if "no argos language pack" in texto.lower():
+            return False, "inexistente"
+        return False, _detalhe(resposta)
+
+    try:
+        pares = resposta.json()["pairs"]
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return False, "a base devolveu uma resposta inválida"
+
+    pronto = any(
+        str(p.get("target_lang")) == destino and p.get("installed") for p in pares
+    )
+    return (True, "") if pronto else (False, "o download não confirmou")
+
+
+def instalar_pacotes(
+    origem: str,
+    destinos: list[str],
+    config: Configuracao,
+    transporte: httpx.BaseTransport | None = None,
+) -> dict[str, Any]:
+    """Baixa o que falta para os pares pedidos, resolvendo o caminho sozinho.
+
+    Nem todo par existe no catálogo. Medido em 29/09/2026: saindo de `pb` só
+    existe `en` como destino direto, então `pb -> fr` nunca vai existir e a
+    tradução passa por `pb -> en -> fr`. Quando o par direto não existe, esta
+    função baixa as DUAS etapas do caminho em vez de devolver um erro em inglês.
+    """
+    fonte = normalizar(origem)
+    if not fonte or fonte not in IDIOMAS:
+        raise ErroTraducao(f"idioma de origem desconhecido: {origem}")
+    alvos = []
+    for item in destinos:
+        codigo = normalizar(item)
+        if codigo not in IDIOMAS:
+            raise ErroTraducao(f"idioma de destino desconhecido: {item}")
+        if codigo != fonte and codigo not in alvos:
+            alvos.append(codigo)
+    if not alvos:
+        raise ErroTraducao("escolha pelo menos um idioma para baixar")
+
+    instalados: list[str] = []
+    via_ingles: dict[str, list[str]] = {}
+    falhas: dict[str, str] = {}
+
+    for alvo in alvos:
+        deu_certo, motivo = _baixar_um_par(fonte, alvo, config, transporte)
+        if deu_certo:
+            instalados.append(alvo)
+            continue
+        if motivo != "inexistente":
+            falhas[alvo] = motivo
+            continue
+
+        # par direto não existe: o caminho é fonte -> inglês -> alvo
+        pernas = []
+        if fonte != PIVO:
+            pernas.append((fonte, PIVO))
+        if alvo != PIVO:
+            pernas.append((PIVO, alvo))
+        rota = [fonte, PIVO, alvo] if fonte != PIVO else [PIVO, alvo]
+
+        problemas = []
+        for de, para in pernas:
+            ok, por_que = _baixar_um_par(de, para, config, transporte)
+            if not ok and por_que != "inexistente":
+                problemas.append(f"{de}→{para}: {por_que}")
+        if problemas:
+            falhas[alvo] = "; ".join(problemas)
+        else:
+            instalados.append(alvo)
+            via_ingles[alvo] = rota
+
+    return {
+        "origem": fonte,
+        "origem_nome": nome(fonte),
+        "pedidos": alvos,
+        "instalados": sorted(set(instalados)),
+        "falhas": falhas,
+        "completo": not falhas,
+        "via_ingles": via_ingles,
+        "nomes": {codigo: nome(codigo) for codigo in alvos},
+        "explicacao": (
+            "Alguns pares não existem direto no catálogo e foram baixados em duas "
+            "etapas, passando pelo inglês."
+            if via_ingles else None
+        ),
+    }
+
+
 def _fontes_candidatas(fonte: str) -> list[str]:
     """Origens a tentar, em ordem.
 

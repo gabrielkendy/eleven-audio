@@ -87,8 +87,29 @@ window.AREAS.push({
             </div>
           </div>
         </section>
-      </section>`;
 
+      <section class="bloco">
+        <h3>Idiomas do tradutor</h3>
+        <p class="ajuda">
+          O tradutor é offline. Cada par de idiomas é um pacote que baixa uma vez e
+          fica na máquina. Quando falta o pacote, a tradução falha, então dá para
+          resolver aqui em vez de descobrir no meio do trabalho.
+        </p>
+        <div class="linha-acao">
+          <label class="chip">Saindo de
+            <select data-pacote-origem></select>
+          </label>
+          <button type="button" class="secundario" data-verificar-pacotes>Verificar</button>
+          <span class="ajuda" data-resumo-pacotes></span>
+        </div>
+        <div class="linha-acao">
+          <label class="chip">Baixar
+            <select data-pacote-baixar></select>
+          </label>
+          <button type="button" data-baixar-pacote>Baixar este idioma</button>
+        </div>
+        <p class="aviso" role="status" data-estado-pacotes>Escolha o idioma de saída e clique em verificar.</p>
+      </section>`;
     const seletores = [
       raiz.querySelector("[data-idioma-origem]"),
       raiz.querySelector("[data-idioma-destino]"),
@@ -135,6 +156,19 @@ window.AREAS.push({
         raiz.querySelector("[data-idioma-origem]").value = "pb";
         raiz.querySelector("[data-idioma-destino]").value = "en";
         raiz.querySelector("[data-idioma-destino-dub]").value = "en";
+
+        // o painel de pacotes usa a mesma lista, mas em ordem de código
+        const seletorPacoteOrigem = raiz.querySelector("[data-pacote-origem]");
+        const seletorPacoteBaixar = raiz.querySelector("[data-pacote-baixar]");
+        const porCodigo = [...lista].sort((a, b) => a.codigo.localeCompare(b.codigo));
+        seletorPacoteOrigem.replaceChildren(
+          ...porCodigo.map((item) => new Option(item.nome, item.codigo)),
+        );
+        seletorPacoteBaixar.replaceChildren(
+          ...porCodigo.map((item) => new Option(item.nome, item.codigo)),
+        );
+        seletorPacoteOrigem.value = "pb";
+        seletorPacoteBaixar.value = "en";
       } catch (erro) {
         estadoTexto.textContent = `Erro ao carregar os idiomas: ${erro.message}`;
       }
@@ -250,7 +284,14 @@ window.AREAS.push({
         raiz.querySelector("[data-resultado-texto]").hidden = false;
         estadoTexto.textContent = "Traduzido.";
       } catch (erro) {
-        estadoTexto.textContent = `Erro: ${erro.message}`;
+        const apontado = await apontarFaltaDePacote(
+          erro.message,
+          raiz.querySelector("[data-idioma-origem]").value,
+          raiz.querySelector("[data-idioma-destino]").value,
+        );
+        estadoTexto.textContent = apontado
+          ? "Falta baixar este idioma. O painel \"Idiomas do tradutor\", abaixo, já está apontado para o par certo."
+          : `Erro: ${erro.message}`;
       } finally {
         botao.disabled = false;
       }
@@ -340,7 +381,111 @@ window.AREAS.push({
         raiz.querySelector("[data-resultado-dub]").hidden = false;
         estadoDub.textContent = "Pronto. Ouça abaixo.";
       } catch (erro) {
-        estadoDub.textContent = `Erro: ${erro.message}`;
+        const apontado = await apontarFaltaDePacote(
+          erro.message,
+          raiz.querySelector("[data-idioma-fonte-dub]").value,
+          raiz.querySelector("[data-idioma-destino-dub]").value,
+        );
+        estadoDub.textContent = apontado
+          ? "Falta baixar este idioma. O painel \"Idiomas do tradutor\", abaixo, já está apontado para o par certo."
+          : `Erro: ${erro.message}`;
+      } finally {
+        botao.disabled = false;
+      }
+    });
+
+    // Quando o que faltou foi o pacote de idioma, aponta o painel de baixo para o
+    // par exato que falhou. Assim o erro vira um caminho, em vez de um beco.
+    async function apontarFaltaDePacote(mensagem, origem, destino) {
+      if (!String(mensagem).toLowerCase().includes("falta instalar")) return false;
+      const seletorOrigem = raiz.querySelector("[data-pacote-origem]");
+      const seletorBaixar = raiz.querySelector("[data-pacote-baixar]");
+      if (origem) seletorOrigem.value = origem;
+      if (destino) seletorBaixar.value = destino;
+      await verificarPacotes();
+      return true;
+    }
+
+    // ---------- pacotes de idioma ----------
+    const estadoPacotes = raiz.querySelector("[data-estado-pacotes]");
+    const resumoPacotes = raiz.querySelector("[data-resumo-pacotes]");
+    let cachePacotes = null;
+
+    async function verificarPacotes() {
+      const origem = raiz.querySelector("[data-pacote-origem]").value;
+      estadoPacotes.textContent = "Verificando os idiomas baixados...";
+      resumoPacotes.textContent = "";
+      try {
+        const dados = await fetch(
+          `/api/traduzir/pacotes?origem=${encodeURIComponent(origem)}`,
+        ).then(ler);
+        cachePacotes = dados;
+        const prontos = dados.instalados.length;
+        const faltam = dados.faltando.length;
+        // Do português do Brasil só o inglês existe como pacote direto: os outros
+        // idiomas chegam por ele. Dizer só "48 para baixar" assustaria à toa.
+        const soPeloIngles =
+          dados.instalados.length === 1 && dados.instalados[0] === "en";
+        resumoPacotes.textContent =
+          `${prontos} pronto(s) · ${faltam} para baixar, saindo de ${dados.origem_nome}`;
+        estadoPacotes.textContent = !faltam
+          ? "Todos os idiomas de saída estão prontos."
+          : soPeloIngles
+            ? `${faltam} idioma(s) fora do inglês. Deste idioma, o inglês é o único `
+              + "pacote direto: os outros chegam por ele, e o app baixa as duas "
+              + "etapas sozinho quando você escolhe um."
+            : `${faltam} idioma(s) ainda não baixado(s). Escolha um abaixo e clique em baixar.`;
+        // pré-seleciona um destino que faça sentido baixar
+        const seletorBaixar = raiz.querySelector("[data-pacote-baixar]");
+        if (dados.faltando.length && dados.faltando.includes(seletorBaixar.value)) {
+          // já está no que falta, deixa quieto
+        } else if (dados.faltando.length) {
+          seletorBaixar.value = dados.faltando[0];
+        }
+      } catch (erro) {
+        cachePacotes = null;
+        estadoPacotes.textContent = `Erro ao verificar: ${erro.message}`;
+      }
+    }
+
+    raiz.querySelector("[data-verificar-pacotes]").addEventListener("click", verificarPacotes);
+
+    raiz.querySelector("[data-baixar-pacote]").addEventListener("click", async (evento) => {
+      const botao = evento.currentTarget;
+      const origem = raiz.querySelector("[data-pacote-origem]").value;
+      const destino = raiz.querySelector("[data-pacote-baixar]").value;
+      const nomeDestino = raiz.querySelector("[data-pacote-baixar]").selectedOptions[0].text;
+      if (!origem || !destino || origem === destino) {
+        estadoPacotes.textContent = "Escolha dois idiomas diferentes.";
+        return;
+      }
+      botao.disabled = true;
+      estadoPacotes.textContent =
+        `Baixando ${nomeDestino}. Isso pode levar um minuto. Não feche a janela...`;
+      try {
+        const r = await fetch("/api/traduzir/pacotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ origem, destinos: [destino] }),
+        }).then(ler);
+        const prontos = r.instalados || [];
+        const rota = (r.via_ingles || {})[destino];
+        if (prontos.indexOf(destino) !== -1) {
+          if (rota) {
+            const caminho = rota.map(function (codigo) { return codigo.toUpperCase(); }).join(" -> ");
+            estadoPacotes.textContent = nomeDestino + " pronto. Esse idioma nao existe direto saindo de "
+              + r.origem_nome + ", entao o caminho e " + caminho + ". Ja esta funcionando.";
+          } else {
+            estadoPacotes.textContent = nomeDestino
+              + " baixado. Agora da para traduzir e dublar usando este idioma.";
+          }
+        } else {
+          const motivo = (r.falhas || {})[destino] || "o download nao confirmou";
+          estadoPacotes.textContent = "Nao deu para baixar " + nomeDestino + ": " + motivo;
+        }
+        await verificarPacotes();
+      } catch (erro) {
+        estadoPacotes.textContent = `Erro ao baixar: ${erro.message}`;
       } finally {
         botao.disabled = false;
       }

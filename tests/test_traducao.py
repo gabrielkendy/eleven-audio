@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import wave
 from pathlib import Path
 
@@ -78,15 +79,46 @@ def test_catalogo_vem_ordenado_por_nome() -> None:
 
 # ---------------------------------------------------------------- traduzir
 
-def _transporte(respostas: dict[str, object]) -> httpx.MockTransport:
+def _transporte(
+    respostas: dict[str, object],
+    instalar: dict[str, list[str]] | None = None,
+) -> httpx.MockTransport:
     """Transporte falso: casa pelo par origem->destino pedido no corpo.
 
     O httpx serializa JSON compacto (`"source_lang":"pt"`, sem espaço depois dos
     dois pontos), então casar com espaço nunca dá certo.
+
+    `instalar` diz quais pares EXISTEM no catálogo, por origem. Par fora dessa
+    lista responde como o Argos responde de verdade para par inexistente:
+    "No Argos language pack is available for X → Y".
     """
+    catalogo = instalar or {}
 
     def handler(requisicao: httpx.Request) -> httpx.Response:
         corpo = requisicao.read().decode()
+        caminho = requisicao.url.path
+
+        # o catálogo responde diferente do tradutor
+        if caminho.endswith(("/packs/install", "/packs/status")):
+            dados = json.loads(corpo)
+            de = dados["source_lang"]
+            existentes = catalogo.get(de, [])
+            pares = [
+                {"source_lang": de, "target_lang": para, "installed": para in existentes}
+                for para in dados["target_langs"]
+            ]
+            if caminho.endswith("/packs/status"):
+                return httpx.Response(200, json={"pairs": pares})
+            if not any(p["installed"] for p in pares):
+                primeiro = dados["target_langs"][0]
+                return httpx.Response(
+                    400,
+                    json={
+                        "detail": f"No Argos language pack is available for {de} → {primeiro}"
+                    },
+                )
+            return httpx.Response(200, json={"pairs": pares})
+
         chave = None
         for par in respostas:
             origem, destino = par.split("->")
@@ -208,6 +240,130 @@ def test_fontes_candidatas() -> None:
     assert traducao._fontes_candidatas("pb") == ["pb", "pt"]
     assert traducao._fontes_candidatas("pt") == ["pt", "pb"]
     assert traducao._fontes_candidatas("en") == ["en"]
+
+
+def test_pacotes_instalados_usa_lotes_de_32(tmp_path: Path) -> None:
+    """A base recusa mais de 32 destinos numa chamada. Medido em 29/09/2026.
+
+    Pedir os 49 idiomas de uma vez devolvia 422 ("List should have at most 32
+    items"), então a consulta tem que fatiar sozinha.
+    """
+    config = _config(tmp_path)
+    tamanhos: list[int] = []
+
+    def handler(requisicao: httpx.Request) -> httpx.Response:
+        corpo = json.loads(requisicao.content)
+        tamanhos.append(len(corpo["target_langs"]))
+        return httpx.Response(
+            200,
+            json={
+                "pairs": [
+                    {"source_lang": "pb", "target_lang": c, "installed": c == "en"}
+                    for c in corpo["target_langs"]
+                ]
+            },
+        )
+
+    estado = traducao.pacotes_instalados(
+        "pb", config, httpx.MockTransport(handler)
+    )
+
+    assert len(tamanhos) == 2, "49 destinos cabem em 2 lotes de 32"
+    assert max(tamanhos) <= 32, "nenhum lote pode passar de 32"
+    assert sum(tamanhos) == 49
+    assert estado["en"] is True
+    assert estado["fr"] is False
+    assert len(estado) == 49
+
+
+def test_pacotes_instalados_recusa_origem_invalida(tmp_path: Path) -> None:
+    with pytest.raises(traducao.ErroTraducao):
+        traducao.pacotes_instalados("klingon", _config(tmp_path), _transporte({}))
+
+
+def test_instalar_pacotes_baixa_o_par_direto(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    transporte = _transporte({}, instalar={"pb": ["en"]})
+
+    r = traducao.instalar_pacotes("pb", ["en"], config, transporte)
+
+    assert r["completo"] is True
+    assert r["instalados"] == ["en"]
+    assert r["falhas"] == {}
+    assert r["via_ingles"] == {}
+
+
+def test_instalar_pacotes_resolve_par_inexistente_via_ingles(tmp_path: Path) -> None:
+    """`pb -> fr` não existe no catálogo: medido, o Argos só tem `pb -> en`.
+
+    Em vez de devolver "No Argos language pack is available for pb → fr", o app
+    baixa as duas etapas do caminho e diz qual foi.
+    """
+    config = _config(tmp_path)
+    pares_pedidos: list[tuple[str, str]] = []
+
+    def handler(requisicao: httpx.Request) -> httpx.Response:
+        corpo = json.loads(requisicao.content)
+        de, para = corpo["source_lang"], corpo["target_langs"][0]
+        pares_pedidos.append((de, para))
+        if (de, para) == ("pb", "fr"):
+            return httpx.Response(400, json={"detail": "No Argos language pack is available for pb → fr"})
+        return httpx.Response(
+            200, json={"pairs": [{"source_lang": de, "target_lang": para, "installed": True}]}
+        )
+
+    r = traducao.instalar_pacotes("pb", ["fr"], config, httpx.MockTransport(handler))
+
+    assert r["completo"] is True
+    assert r["instalados"] == ["fr"]
+    assert r["via_ingles"] == {"fr": ["pb", "en", "fr"]}
+    assert ("pb", "fr") in pares_pedidos, "tenta o direto primeiro"
+    assert ("pb", "en") in pares_pedidos, "depois a primeira perna"
+    assert ("en", "fr") in pares_pedidos, "depois a segunda perna"
+
+
+def test_instalar_pacotes_relata_falha_de_rede(tmp_path: Path) -> None:
+    """Falha que não é "par inexistente" tem que virar relato, não caminho pelo inglês."""
+    config = _config(tmp_path)
+
+    def handler(requisicao: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"detail": "sem conexão com o catálogo"})
+
+    r = traducao.instalar_pacotes("pb", ["en"], config, httpx.MockTransport(handler))
+
+    assert r["completo"] is False
+    assert r["instalados"] == []
+    assert "en" in r["falhas"]
+
+
+def test_instalar_pacotes_recusa_lista_vazia(tmp_path: Path) -> None:
+    with pytest.raises(traducao.ErroTraducao):
+        traducao.instalar_pacotes("pb", [], _config(tmp_path), _transporte({}))
+
+
+@pytest.mark.parametrize(
+    ("origem", "pedido", "esperado"),
+    [
+        ("pb", "fr", "fr"),
+        ("pb", "FR", "fr"),
+        ("en", "pt-br", "pb"),
+        ("en", "pt-BR", "pb"),
+    ],
+)
+def test_instalar_pacotes_aceita_nomes_variados(
+    tmp_path: Path, origem: str, pedido: str, esperado: str
+) -> None:
+    config = _config(tmp_path)
+    r = traducao.instalar_pacotes(
+        origem, [pedido], config, _transporte({}, instalar={origem: [esperado]})
+    )
+    assert r["instalados"] == [esperado]
+
+
+def test_instalar_pacotes_recusa_origem_igual_ao_destino(tmp_path: Path) -> None:
+    """`pb` e `pt-br` são o mesmo idioma: pedir os dois não faz sentido."""
+    with pytest.raises(traducao.ErroTraducao):
+        traducao.instalar_pacotes("pb", ["pt-br"], _config(tmp_path), _transporte({}))
 
 
 def test_pack_faltando_vira_mensagem_util(tmp_path: Path) -> None:

@@ -166,14 +166,22 @@ normaliza: `pt-BR`, `pt_br`, `br` → `pb`. Testado:
 ```
 áudio em português
    │
-   ├─ 1. TRANSCREVE (Whisper) ..... devolve o texto E o idioma detectado
-   ├─ 2. TRADUZ (Argos) ........... com cascata pelo inglês quando precisa
-   ├─ 3. DIVIDE em pedaços ........ por fim de frase, sem cortar palavra
-   └─ 4. FALA (motor + seu perfil)  na sua voz clonada
+   ├─ 1. TRANSCREVE (Whisper) ..... devolve o texto
+   ├─ 2. DESCOBRE O IDIOMA ........ pelo texto, via Ollama (não pela base)
+   ├─ 3. TRADUZ (Argos) ........... com cascata pelo inglês quando precisa
+   ├─ 4. DIVIDE em pedaços ........ por fim de frase, sem cortar palavra
+   └─ 5. FALA (motor + seu perfil)  na sua voz clonada
                 │
                 ▼
         áudio em inglês, NA SUA VOZ
 ```
+
+**Por que o idioma não vem da transcrição:** medido em 29/09/2026, o campo
+`language` que a base devolve é apenas **eco do que foi enviado**, não detecção. Um
+áudio em inglês transcrito com `language=pt` voltava como `"pt"`. Por isso o app
+manda `auto` para o Whisper e descobre o idioma pelo texto transcrito, com o
+Ollama. Sem isso, um áudio inglês era tratado como português e pegava um caminho de
+dois saltos sem necessidade.
 
 Texto longo é dividido (motores degradam ou recusam textos compridos) e os pedaços
 são juntados sem recodificar, exigindo o mesmo formato em todos: misturar taxas
@@ -183,6 +191,27 @@ produziria áudio em velocidade errada.
 próprio e servidor separado na porta 7860, e está **não instalado** nesta máquina.
 Fazendo aqui, o áudio sai na **sua voz clonada**, que é o ponto do projeto, e não
 numa voz genérica de dublador.
+
+### Pacotes de idioma (a tela baixa o que falta)
+
+O tradutor é offline e cada par de idiomas é um pacote que baixa uma vez e fica na
+máquina. A aba **Traduzir** tem um painel que mostra o que falta e baixa sem sair
+dela. Quando falta pacote no meio de uma tradução, o erro aponta o painel para o
+par exato que falhou, em vez de só reclamar.
+
+Nem todo par existe no catálogo: saindo de `pb` só existe `en` como destino
+direto. Então `pb -> fr` **nunca** vai existir, e a tradução passa por
+`pb -> en -> fr`. Quando você pede para baixar um par assim, a rota baixa **as duas
+etapas** e diz qual foi o caminho, em vez de devolver o erro em inglês do Argos
+(*"No Argos language pack is available for pb → fr"*).
+
+| rota | o que faz |
+|---|---|
+| `GET /api/traduzir/pacotes?origem=pb` | Lista o que já está baixado, saindo de um idioma |
+| `POST /api/traduzir/pacotes` | Baixa o que falta, resolvendo o caminho sozinho |
+
+Limite medido: a base recusa mais de **32 destinos por chamada** ("List should have
+at most 32 items"), então consultas e downloads vão em lotes de 32.
 
 ### Dependência opcional: detecção de idioma
 
