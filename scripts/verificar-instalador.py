@@ -45,7 +45,7 @@ class _SemRedirect(HTTPRedirectHandler):
     justamente o caso que derrubava o launcher. Mesmo defeito, dois idiomas.
     """
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D102
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
 
 
@@ -55,7 +55,7 @@ _OPENER = build_opener(_SemRedirect)
 def _powershell(comando: str, timeout: int = 300) -> str:
     proc = subprocess.run(
         ["powershell", "-NoLogo", "-NoProfile", "-Command", comando],
-        capture_output=True, text=True, timeout=timeout,
+        capture_output=True, text=True, timeout=timeout, check=False,
     )
     return (proc.stdout or "") + (proc.stderr or "")
 
@@ -132,7 +132,7 @@ def main() -> int:
              "$venvApp = Join-Path $script:PastaApp '.venv'" in instalar)
     # $pid e somente leitura no PowerShell
     conferir("nenhuma atribuicao a $pid (reservado)",
-             not re.findall(r"^\s*\$pid\s*=", abrir + fechar, re.M))
+             not re.findall(r"^\s*\$pid\s*=", abrir + fechar, re.MULTILINE))
     # sonda de saude certa, sem seguir redirect
     conferir("sonda /health e /api/saude, nao a raiz",
              "'/health'" in abrir and "'/api/saude'" in abrir)
@@ -145,7 +145,7 @@ def main() -> int:
     proc = subprocess.run(
         ["powershell", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass",
          "-File", str(INSTALADOR / "instalar.ps1"), "-SoVerificar"],
-        capture_output=True, text=True, timeout=300,
+        capture_output=True, text=True, timeout=300, check=False,
     )
     saida = (proc.stdout or "") + (proc.stderr or "")
     conferir("roda sem estourar", proc.returncode == 0, f"exit {proc.returncode}")
