@@ -91,3 +91,8 @@ ELEVEN_AUDIO - Um Clique.ps1
 
 # gerado pelo instalador em cada maquina; contem caminho de quem instalou
 instalador/local.ps1
+
+# A base de voz e projeto de terceiro (AGPL-3.0) e tem ~8,6 GB. O instalador
+# clona ela FORA do repositorio, na pasta de trabalho. Se alguem clonar pra
+# dentro daqui, nao pode entrar no commit de jeito nenhum.
+base-voicestudio/
