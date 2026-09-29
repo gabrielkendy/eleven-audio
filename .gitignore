@@ -88,3 +88,6 @@ Thumbs.db
 # Atalho local da maquina (caminhos absolutos do dono, nao servem para quem clona)
 ELEVEN_AUDIO - Um Clique.bat
 ELEVEN_AUDIO - Um Clique.ps1
+
+# gerado pelo instalador em cada maquina; contem caminho de quem instalou
+instalador/local.ps1
