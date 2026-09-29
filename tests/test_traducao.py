@@ -812,3 +812,72 @@ def test_dublar_pede_auto_ao_transcritor_quando_nao_escolhem_origem(
 
     assert idiomas_enviados, "nem chamou o transcritor"
     assert idiomas_enviados[0] == "auto", idiomas_enviados
+
+
+# ---------------------------------------------------------------------------
+# para_motor: o codigo da tela -> o codigo que o MOTOR de voz reconhece
+#
+# Medido em 29/09/2026 chamando `_resolve_language` (o validador do OmniVoice)
+# com os 51 codigos do catalogo: 46 passavam, 4 viravam None, e o motor caia em
+# "modo agnostico de idioma" — gerava sem saber em que lingua falava, em silencio.
+# No log da base isso apareceu 27x com 'pb' e 14x com 'Ingles' (o rotulo que o
+# dub_base mandava). Estes testes travam a correcao.
+# ---------------------------------------------------------------------------
+
+# Codigos que o motor RECUSA. Se algum sair do para_motor, a geracao volta a
+# rodar sem indicacao de idioma e o defeito volta calado.
+RECUSADOS_PELO_MOTOR = frozenset({"pb", "ar", "zt", "tl"})
+
+
+def test_para_motor_troca_os_quatro_codigos_que_o_motor_recusa() -> None:
+    assert traducao.para_motor("pb") == "pt", "portugues do Brasil vira portugues"
+    assert traducao.para_motor("ar") == "arb", "o motor nao tem 'ar' puro"
+    assert traducao.para_motor("zt") == "zh", "chines tradicional cai no zh"
+    assert traducao.para_motor("tl") == "fil", "tagalo e filipino"
+
+
+def test_para_motor_aceita_rotulo_e_tag_de_regiao() -> None:
+    """A tela e o dub_base mandam formas diferentes do mesmo idioma."""
+    assert traducao.para_motor("pt-BR") == "pt"
+    assert traducao.para_motor("pt_br") == "pt"
+    assert traducao.para_motor("Português (Brasil)") == "pt"
+    assert traducao.para_motor("Inglês") == "en"
+    assert traducao.para_motor("Árabe") == "arb"
+    assert traducao.para_motor("Chinês (tradicional)") == "zh"
+    assert traducao.para_motor("Tagalo") == "fil"
+
+
+def test_para_motor_deixa_auto_e_vazio_intactos() -> None:
+    """'auto' tem significado proprio: o transcritor descobre o idioma sozinho.
+
+    Deixar virar string vazia corrompia o corpo multipart do /transcribe — o
+    campo sumia e o teste pegou isso.
+    """
+    assert traducao.para_motor("auto") == "auto"
+    assert traducao.para_motor("Auto") == "auto"
+    assert traducao.para_motor("") == ""
+
+
+def test_nenhum_idioma_do_catalogo_sai_recusado_pelo_motor() -> None:
+    """Invariante: nenhuma entrada da tela pode virar codigo que o motor rejeita.
+
+    Percorre o catalogo inteiro, pelo codigo E pelo rotulo. Se alguem acrescentar
+    um idioma cujo codigo o motor nao conhece, este teste acusa antes de virar
+    bug silencioso em producao.
+    """
+    for codigo, rotulo in traducao.IDIOMAS.items():
+        for entrada in (codigo, rotulo):
+            saida = traducao.para_motor(entrada)
+            assert saida, f"{entrada!r} virou vazio"
+            assert saida not in RECUSADOS_PELO_MOTOR, (
+                f"{entrada!r} -> {saida!r}, que o motor de voz recusa"
+            )
+            assert saida.isascii() and saida.isalpha() and 2 <= len(saida) <= 3, (
+                f"{entrada!r} -> {saida!r} nao parece codigo de idioma"
+            )
+
+
+def test_para_motor_nao_mexe_no_que_ja_funciona() -> None:
+    """46 dos 51 codigos ja passavam; o conserto nao pode estragar esses."""
+    for codigo in ("en", "pt", "de", "fr", "ja", "zh", "it", "es", "ru", "ko"):
+        assert traducao.para_motor(codigo) == codigo

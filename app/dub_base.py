@@ -65,7 +65,9 @@ def enviar_audio(
     arquivos = {"video": (nome_arquivo, conteudo, "application/octet-stream")}
     dados = {"input_type": "audio"}
     if idioma_origem:
-        dados["source_lang"] = idioma_origem
+        # O source_lang alimenta a deteccao de idioma do transcritor da base, que
+        # tambem so entende codigo valido. Com "pb" ele nao reconhecia.
+        dados["source_lang"] = traducao.para_motor(idioma_origem)
     try:
         with _abrir(transporte) as cliente:
             resposta = cliente.post(
@@ -196,8 +198,12 @@ def gerar(
 
     corpo = {
         "segments": [{**segmento, "profile_id": perfil_id} for segmento in segmentos],
-        "language_code": destino,
-        "language": traducao.nome(destino),
+        # O motor le `language` (nao `language_code`) para saber em que lingua
+        # falar: dub_generate.py:2124 faz `lang = req.language` e entrega isso ao
+        # backend. Aqui ia `traducao.nome(destino)`, ou seja "Portugues (Brasil)",
+        # que o motor nao reconhece — TODA dublagem saia sem indicacao de idioma.
+        "language": traducao.para_motor(destino),
+        "language_code": traducao.para_motor(destino),
         "timing_strategy": tempo,
         "voice_match": "consistent",
         "speed": velocidade,

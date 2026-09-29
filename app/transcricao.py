@@ -10,6 +10,7 @@ from typing import Any, BinaryIO
 import httpx
 
 from app.config import Configuracao
+from app.traducao import para_motor
 
 
 class ErroTranscricao(Exception):
@@ -42,7 +43,9 @@ def transcrever(
             resposta = cliente.post(
                 f"{config.base_url}/transcribe",
                 files={"audio": (caminho.name, audio)},
-                data={"language": idioma},
+                # O transcritor da base so entende codigo valido ("pt", "en").
+                # Com o codigo da tela ("pb") ele nao reconhecia o idioma.
+                data={"language": para_motor(idioma)},
             )
     except httpx.HTTPError as erro:
         raise ErroTranscricao(str(erro)) from erro

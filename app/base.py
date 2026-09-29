@@ -8,6 +8,7 @@ from urllib.request import Request, urlopen
 import httpx
 
 from app.config import Configuracao
+from app.traducao import para_motor
 
 # Saída crua do modelo, sem os retoques que a base aplica por conta própria.
 # Ver a explicação dentro de montar_corpo para a medição que sustenta isto.
@@ -65,7 +66,10 @@ def montar_corpo(
     corpo = {
         "text": texto,
         "engine": motor,
-        "language": idioma,
+        # O motor so entende codigo de idioma (pt, en, arb...) ou o nome em
+        # INGLES. O codigo da tela ("pb", "zt") e o rotulo em portugues ("Ingles")
+        # fazem ele gerar sem indicacao de idioma, em silencio. Ver PARA_O_MOTOR.
+        "language": para_motor(idioma),
         "speed": str(velocidade),
         "stream": "false",
         # Quando estes campos não vão, a base aplica os padrões DELA: limpeza de

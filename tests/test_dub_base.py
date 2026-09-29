@@ -448,3 +448,63 @@ def test_limpeza_do_job_nao_derruba_o_que_ja_foi_entregue(tmp_path: Path) -> Non
     transporte = _transporte(**{"/dub/history": httpx.Response(500, json={"detail": "boom"})})
 
     assert dub_base.limpar_job("j", _config(tmp_path), transporte) is False
+
+
+# ─── o idioma que sai para o motor ──────────────────────────────────────────
+
+
+def test_geracao_manda_codigo_de_idioma_que_o_motor_aceita(tmp_path: Path) -> None:
+    """O motor le `language`; mandar o rotulo em portugues o faz gerar sem idioma.
+
+    Medido em 29/09/2026: `dub_base` mandava `traducao.nome(destino)`, ou seja
+    "Portugues (Brasil)". O OmniVoice nao reconhece, cai em modo agnostico de
+    idioma e gera sem saber em que lingua fala — sem erro na tela, so um WARNING
+    no log da base. Apareceu 14x com 'Ingles' no log antes da correcao.
+    """
+    transporte = _transporte(**{"/dub/generate": {"json": {"task_id": "dub_1"}}})
+
+    dub_base.gerar(
+        "j", [{"id": "s", "text": "x", "start": 0.0, "end": 1.0}], "pb", "vz",
+        _config(tmp_path), transporte=transporte,
+    )
+
+    corpo = json.loads(transporte.chamadas[0]["corpo"])
+    assert corpo["language"] == "pt", (
+        f"o motor so entende codigo; veio {corpo['language']!r}"
+    )
+    assert "Português" not in corpo["language"]
+    # language_code tambem vira codigo valido, que e o que alimenta os metadados
+    assert corpo["language_code"] == "pt"
+
+
+def test_geracao_manda_codigo_valido_para_os_quatro_idiomas_que_o_motor_recusava(
+    tmp_path: Path,
+) -> None:
+    """pb, ar, zt e tl nao existem no motor: cada um tem que sair convertido."""
+    esperado = {"pb": "pt", "ar": "arb", "zt": "zh", "tl": "fil"}
+
+    for da_tela, no_motor in esperado.items():
+        transporte = _transporte(**{"/dub/generate": {"json": {"task_id": "d"}}})
+        dub_base.gerar(
+            "j", [{"id": "s", "text": "x", "start": 0.0, "end": 1.0}], da_tela, "vz",
+            _config(tmp_path), transporte=transporte,
+        )
+        corpo = json.loads(transporte.chamadas[0]["corpo"])
+        assert corpo["language"] == no_motor, (
+            f"{da_tela} deveria virar {no_motor} para o motor, veio {corpo['language']!r}"
+        )
+
+
+def test_upload_manda_source_lang_valido(tmp_path: Path) -> None:
+    """O source_lang alimenta o transcritor da base, que tambem so entende codigo."""
+    transporte = _transporte(**{"/dub/upload": {"json": {"job_id": "j", "task_id": "t"}}})
+
+    dub_base.enviar_audio(b"RIFF....", "a.wav", _config(tmp_path), idioma_origem="pb",
+                          transporte=transporte)
+
+    corpo = transporte.chamadas[0]["corpo"]
+    if isinstance(corpo, bytes):
+        corpo = corpo.decode("utf-8", "replace")
+    assert "pt" in corpo
+    assert 'name="source_lang"' in corpo
+    assert 'value="pb"' not in corpo and '"pb"' not in corpo

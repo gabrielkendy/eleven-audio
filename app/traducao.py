@@ -112,6 +112,59 @@ def nome(codigo: str) -> str:
     return IDIOMAS.get(normalizar(codigo), codigo or "desconhecido")
 
 
+# Quatro códigos deste catálogo NÃO existem no motor de voz, medido em 29/09/2026
+# chamando `_resolve_language` (o validador do OmniVoice) com cada um dos 51
+# códigos: 46 passam, estes 4 viram None e o motor cai em "modo agnóstico de
+# idioma" — gera sem saber em que língua está falando. O mapa abaixo manda o
+# código equivalente que o motor ACEITA (conferido na lista de 646 dele).
+#
+#   pb  Português (Brasil)   -> pt    (o motor não separa variantes)
+#   ar  Árabe                -> arb   (árabe padrão; o motor não tem "ar" puro)
+#   zt  Chinês (tradicional) -> zh
+#   tl  Tagalo               -> fil   (filipino é o mesmo idioma, outro nome)
+#
+# A base de terceiro tem o MESMO defeito por dentro: o normalizador dela mapeia
+# "arabic" -> "ar" e "tagalog" -> "tl", que são justamente dois códigos que o
+# motor rejeita. Não dá para consertar lá (código de terceiro, AGPL), então a
+# conversão é feita aqui, antes de sair.
+PARA_O_MOTOR: dict[str, str] = {
+    "pb": "pt",
+    "ar": "arb",
+    "zt": "zh",
+    "tl": "fil",
+}
+
+
+def para_motor(codigo: str) -> str:
+    """Traduz o código da tela para um que o motor de voz reconheça.
+
+    Sem isto, o `/generate` e o `/dub/generate` recebem um código que o motor não
+    conhece e ele gera sem indicação de idioma, em silêncio — sem erro, sem aviso
+    na tela, só um WARNING no log da base.
+
+    Aceita as três formas que aparecem no código: o código ("pb"), o tag de região
+    ("pt-BR") e o rótulo da tela ("Português (Brasil)").
+
+    "auto" e vazio passam intactos. São valores com significado próprio — "auto" diz
+    ao transcritor para descobrir o idioma sozinho, e a base também o entende no
+    TTS — então não podem virar mapa nem sumir.
+    """
+    if not codigo:
+        return codigo
+    if codigo.strip().lower() == "auto":
+        return "auto"
+    chave = normalizar(codigo)
+    # normalizar() só resolve região ("pt-BR" -> "pb"), não o rótulo ("Inglês").
+    # Quando sobra algo que não é código conhecido, tenta pelo rótulo.
+    if chave not in IDIOMAS:
+        alvo = codigo.strip().lower()
+        for cod, rotulo in IDIOMAS.items():
+            if rotulo.lower() == alvo:
+                chave = cod
+                break
+    return PARA_O_MOTOR.get(chave, chave)
+
+
 def catalogo() -> list[dict[str, str]]:
     """Lista para a tela, em ordem alfabética de nome."""
     return [
