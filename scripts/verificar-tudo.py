@@ -91,6 +91,34 @@ def main() -> int:
         falhas.append(f"wav mock falhou: {erro}")
         print(f"ERRO wav: {erro}")
 
+    # O motor de voz valida o idioma em `_resolve_language` e, quando nao conhece o
+    # valor, NAO erra: registra um WARNING no log e gera em "modo agnostico de
+    # idioma". Medido em 29/09/2026: dos 51 codigos do catalogo, 46 passavam e
+    # pb/ar/zt/tl eram descartados; o rotulo em portugues ("Ingles") falhava sempre.
+    # Como o dub_base mandava o rotulo, TODA dublagem saia sem indicacao de idioma.
+    try:
+        from app import traducao
+
+        # Codigos que o motor RECUSA. Se algum sair do app, a geracao volta a
+        # rodar sem idioma, em silencio.
+        recusados_pelo_motor = {"pb", "ar", "zt", "tl"}
+        ruins = []
+        for codigo in traducao.IDIOMAS:
+            for entrada in (codigo, traducao.IDIOMAS[codigo]):
+                saida = traducao.para_motor(entrada)
+                if not saida or saida in recusados_pelo_motor:
+                    ruins.append(f"{entrada!r} -> {saida!r}")
+        if ruins:
+            raise ValueError("idiomas que o motor recusaria: " + "; ".join(ruins[:5]))
+        # "auto" tem significado proprio e nao pode virar vazio: campo vazio
+        # corrompe o corpo multipart do /transcribe.
+        if traducao.para_motor("auto") != "auto":
+            raise ValueError("para_motor mexeu no 'auto'")
+        print(f"OK idiomas: {len(traducao.IDIOMAS)} codigos convertidos para o motor")
+    except (ImportError, ValueError, AttributeError) as erro:
+        falhas.append(f"idiomas para o motor: {erro}")
+        print(f"ERRO idiomas: {erro}")
+
     if falhas:
         print(f"RESULTADO: FALHOU ({len(falhas)} item(ns))")
         return 1
