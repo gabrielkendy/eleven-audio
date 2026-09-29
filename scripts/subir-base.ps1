@@ -32,6 +32,10 @@ Push-Location -LiteralPath $BaseDir
 $env:HF_HUB_OFFLINE = '1'
 $env:TRANSFORMERS_OFFLINE = '1'
 $env:HF_HUB_DISABLE_TELEMETRY = '1'
+# A base tem o venv dela. PYTHONPATH herdado de fora pode fazer outro
+# site-packages sombrear o do projeto e derrubar o import na largada. Medido em
+# 29/09/2026: "No module named 'pydantic_core._pydantic_core'".
+$env:PYTHONPATH = $null
 try {
     & $PythonBase -m uvicorn backend.main:app --host 127.0.0.1 --port $Porta
     if ($LASTEXITCODE -ne 0) {
