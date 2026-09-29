@@ -84,3 +84,7 @@ revisao-*.txt
 Thumbs.db
 .idea/
 .vscode/
+
+# Atalho local da maquina (caminhos absolutos do dono, nao servem para quem clona)
+ELEVEN_AUDIO - Um Clique.bat
+ELEVEN_AUDIO - Um Clique.ps1
