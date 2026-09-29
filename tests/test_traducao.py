@@ -180,6 +180,36 @@ def test_recusa_texto_vazio(tmp_path: Path) -> None:
     assert "escreva" in str(erro.value).lower()
 
 
+def test_usa_a_variante_irma_quando_falta_o_pacote_da_origem(tmp_path: Path) -> None:
+    """Defeito real: o detector passou a acertar `pb`, mas só existia `pt->en`.
+
+    Dublar áudio brasileiro para inglês quebrou. Como pt e pb são a mesma língua,
+    a origem tem que aceitar a variante irmã quando o pacote exato falta.
+    """
+    config = _config(tmp_path)
+    transporte = _transporte({"pt->en": "Good morning."})  # só pt->en existe
+
+    r = traducao.traduzir("Bom dia.", "pb", "en", config, transporte)
+
+    assert r["texto"] == "Good morning."
+    assert r["origem"] == "pb", "a variante informada não pode ser trocada na resposta"
+
+
+def test_variante_irma_nao_vale_para_o_destino(tmp_path: Path) -> None:
+    """Trocar a variante no destino daria português de Portugal a quem pediu Brasil."""
+    config = _config(tmp_path)
+    transporte = _transporte({"en->pt": "Bom dia, como estás?"})  # falta en->pb
+
+    with pytest.raises(traducao.ErroTraducao):
+        traducao.traduzir("Good morning.", "en", "pb", config, transporte)
+
+
+def test_fontes_candidatas() -> None:
+    assert traducao._fontes_candidatas("pb") == ["pb", "pt"]
+    assert traducao._fontes_candidatas("pt") == ["pt", "pb"]
+    assert traducao._fontes_candidatas("en") == ["en"]
+
+
 def test_pack_faltando_vira_mensagem_util(tmp_path: Path) -> None:
     config = _config(tmp_path)
     transporte = _transporte({})

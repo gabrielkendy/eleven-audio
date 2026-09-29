@@ -340,6 +340,22 @@ def _extrair_codigo(bruto: str) -> str | None:
     return codigos[0] if codigos else None
 
 
+def _fontes_candidatas(fonte: str) -> list[str]:
+    """Origens a tentar, em ordem.
+
+    `pb` e `pt` são a mesma língua em variantes diferentes, e o Argos trata como
+    idiomas separados. Se o pacote de uma falta, a outra entende o texto perfeitamente,
+    então tentar a variante irmã evita uma falha boba numa instalação nova. Vale só
+    para a ORIGEM: no destino a variante é o resultado, e trocar daria português de
+    Portugal para quem pediu Brasil.
+    """
+    if fonte == "pb":
+        return ["pb", "pt"]
+    if fonte == "pt":
+        return ["pt", "pb"]
+    return [fonte]
+
+
 def traduzir(
     texto: str,
     origem: str,
@@ -381,25 +397,36 @@ def traduzir(
             "observacao": "origem e destino iguais, texto devolvido sem alteração",
         }
 
-    # 1) tenta o par direto
-    try:
-        traduzido = _pedir_traducao([texto], fonte, alvo, config, transporte)[0]
-        return {
-            "texto": traduzido,
-            "origem": fonte,
-            "destino": alvo,
-            "caminho": [fonte, alvo],
-            "saltos": 1,
-            "observacao": None,
-        }
-    except ErroTraducao as direto:
-        if fonte == PIVO or alvo == PIVO:
-            raise
-        erro_direto = direto
+    # 1) tenta o par direto, aceitando a variante irmã como origem
+    erro_direto: ErroTraducao | None = None
+    for candidata in _fontes_candidatas(fonte):
+        try:
+            traduzido = _pedir_traducao([texto], candidata, alvo, config, transporte)[0]
+            return {
+                "texto": traduzido,
+                "origem": fonte,
+                "destino": alvo,
+                "caminho": [fonte, alvo],
+                "saltos": 1,
+                "observacao": None,
+            }
+        except ErroTraducao as erro:
+            erro_direto = erro
+
+    if fonte == PIVO or alvo == PIVO:
+        raise erro_direto
 
     # 2) cascata pelo inglês
     try:
-        intermediario = _pedir_traducao([texto], fonte, PIVO, config, transporte)[0]
+        intermediario = ""
+        for candidata in _fontes_candidatas(fonte):
+            try:
+                intermediario = _pedir_traducao([texto], candidata, PIVO, config, transporte)[0]
+                break
+            except ErroTraducao:
+                continue
+        if not intermediario:
+            raise erro_direto
         traduzido = _pedir_traducao([intermediario], PIVO, alvo, config, transporte)[0]
     except ErroTraducao as cascata:
         raise ErroTraducao(
