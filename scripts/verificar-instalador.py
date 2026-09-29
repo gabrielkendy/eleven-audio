@@ -40,10 +40,11 @@ BAT = ("INSTALAR.bat", "SO-CONFERIR.bat", "ABRIR.bat", "FECHAR.bat", "DIAGNOSTIC
 # fosse por nome, a propria lista de padroes entregaria o caminho de quem empacotou,
 # e este arquivo vai dentro do pacote.
 PESSOAL = (
-    # C:\Users\<nome>\ onde <nome> e uma pessoa, nao um marcador generico
-    re.compile(r"[A-Za-z]:\\+Users\\+(?!<)(?!%)(?!\$)[A-Za-z0-9._-]{3,}"),
-    re.compile(r"/home/(?!<)[a-z0-9._-]{3,}"),
-    re.compile(r"\.venvs[/\\]"),
+    # C:\Users\<nome>\ ou c:/users/<nome>/ — no Windows caminho nao diferencia
+    # caixa e aceita as duas barras, entao o detector tem que aceitar tambem.
+    re.compile(r"[A-Za-z]:[\\/]+Users[\\/]+(?!<)(?!%)(?!\$)[A-Za-z0-9._-]{3,}", re.IGNORECASE),
+    re.compile(r"/home/(?!<)[a-z0-9._-]{3,}", re.IGNORECASE),
+    re.compile(r"\.venvs[\\/]", re.IGNORECASE),
 )
 
 # Marcadores genericos que PODEM aparecer (sao como se escreve um caminho de exemplo)
