@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 
+from app.chatterbox_local import sintetizar_chatterbox
 from app.cofre import abrir
 from app.config import Configuracao
 from app.motor import sintetizar
@@ -24,8 +25,15 @@ def _relativo(caminho: Path, config: Configuracao) -> str:
         return str(caminho.resolve())
 
 
+# Motores que o próprio app gera, sem passar pela base. A base não os conhece:
+# `mock` é sintético e `chatterbox-ptbr` roda num processo local
+# (`app/chatterbox_local.py`). Perguntar à base por eles devolvia
+# "motor nao informado pela base" e derrubava a comparação inteira.
+MOTORES_LOCAIS = ("mock", "chatterbox-ptbr")
+
+
 def _motivos(client: httpx.Client, motores: list[str]) -> dict[str, dict[str, Any]]:
-    reais = [motor for motor in motores if motor != "mock"]
+    reais = [motor for motor in motores if motor not in MOTORES_LOCAIS]
     if not reais:
         return {}
     resposta = client.get("/engines/tts")
@@ -135,6 +143,12 @@ def comparar(
                     # sintetizar ja aplica a pasta do dia; nao repetir aqui
                     item = sintetizar(texto, motor="mock", pasta_saida=config.saidas, perfil_id=perfil_id)
                     item["caminho_absoluto"] = str(Path(item["arquivo"]).resolve())
+                elif motor == "chatterbox-ptbr":
+                    # Roda no app, nao na base. Sem este ramo a comparacao so
+                    # funcionava no papel: o aluno escolhia o Chatterbox e levava
+                    # "motor nao informado pela base" depois de clicar.
+                    item = sintetizar_chatterbox(texto, config=config, perfil_id=perfil_id)
+                    item["dispositivo"] = item.get("dispositivo") or "desconhecido"
                 else:
                     item = _gerar_real(
                         client=client,

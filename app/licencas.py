@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.bloqueios import motivo as motivo_bloqueio
+
 # Só entra aqui o que foi confirmado na fonte oficial. O que não foi confirmado
 # fica de fora e é tratado como desconhecido, em vez de suposto.
 LICENCAS: dict[str, dict[str, Any]] = {
@@ -57,8 +59,21 @@ LICENCAS: dict[str, dict[str, Any]] = {
 DESCONHECIDO = "licença não verificada na fonte oficial"
 
 # Sugestão para quando o motor escolhido não permite uso comercial. Ordem por
-# qualidade medida e aprovada pelo ouvido do dono.
-ALTERNATIVAS_COMERCIAIS = ("voxcpm2", "chatterbox-ptbr", "qwen3-tts")
+# qualidade medida e aprovada pelo ouvido do dono. Motor que o app bloqueia
+# (`app/bloqueios.py`) NUNCA entra na sugestão: sugerir um motor que derruba a
+# base manda o aluno para uma tela que só devolve erro.
+ALTERNATIVAS_COMERCIAIS = ("chatterbox-ptbr",)
+# `qwen3-tts` ficou de fora: não está no catálogo da base, então citá-lo era a
+# mesma armadilha do VoxCPM2 — uma sugestão que não leva a lugar nenhum.
+
+
+def alternativas_uteis() -> list[str]:
+    """Alternativas comerciais que realmente podem ser escolhidas agora.
+
+    Um motor bloqueado tem motivo medido; ele fica fora. Motor que a base não
+    oferece também fica de fora, senão o conselho vira promessa vazia.
+    """
+    return [motor for motor in ALTERNATIVAS_COMERCIAIS if not motivo_bloqueio(motor)]
 
 
 def da_licenca(motor: str) -> dict[str, Any]:
@@ -84,7 +99,13 @@ def aviso_comercial(motor: str) -> str | None:
     dados = LICENCAS.get(motor)
     if not dados or dados.get("comercial") is not False:
         return None
-    alternativas = ", ".join(ALTERNATIVAS_COMERCIAIS[:3])
+    uteis = alternativas_uteis()
+    if not uteis:
+        return (
+            f"O motor {motor} tem pesos {dados['pesos']} e NÃO pode ser usado para "
+            "vender. Nenhuma alternativa comercial está disponível nesta máquina agora."
+        )
+    alternativas = ", ".join(uteis[:3])
     return (
         f"O motor {motor} tem pesos {dados['pesos']} e NÃO pode ser usado para "
         f"vender. Para uso comercial, escolha {alternativas}."

@@ -572,7 +572,12 @@ window.AREAS.gerar = {
 
     async function carregar() {
       try {
-        const [catalogo, estado, saidas] = await Promise.all([api("/motores"), api("/estado"), api("/saidas")]);
+        // O seletor de motor é a primeira coisa que o aluno olha. Ele NÃO depende
+        // de /estado nem de /saidas, então vai sozinho, na frente. Antes os três
+        // pedidos ficavam em fila no mesmo Promise.all e a tela passava segundos
+        // em "Carregando...", o que parece travamento (foi o que aconteceu ao
+        // abrir o app para testar).
+        const catalogo = await api("/motores");
         motores = catalogo.filter((motor) => motor.id !== "mock");
         campo("motor").replaceChildren(...motores.filter((motor) => motor.disponivel).map((motor) => {
           const opcao = document.createElement("option");
@@ -594,6 +599,7 @@ window.AREAS.gerar = {
           artigo.append(nome, motivo);
           return artigo;
         }));
+        const [estado, saidas] = await Promise.all([api("/estado"), api("/saidas")]);
         const ativo = motores.find((motor) => motor.id === estado.motor_ativo && motor.disponivel) || motores.find((motor) => motor.disponivel);
         if (ativo) campo("motor").value = ativo.id;
         ultimaGeracao = saidas[0] || (estado.tempo_ultima_geracao_s ? { duracao_audio_s: estado.tempo_ultima_geracao_s } : null);

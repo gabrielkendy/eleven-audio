@@ -32,7 +32,7 @@ window.AREAS.push({
         <aside>
           <label class="campo-rotulo" for="desenhar-nome">Nome do perfil</label>
           <input id="desenhar-nome" name="nome" maxlength="60" placeholder="Minha nova voz">
-          <p class="aviso">O desenho usa o motor VoxCPM2. Se ele estiver indisponível, abra a área <a href="#config" data-ir-config>CONFIGURACAO</a> e confira a instalação.</p>
+          <p class="aviso" data-aviso-motor>Verificando se o motor de desenho está disponível...</p>
         </aside>
       </div>
       <p class="aviso" role="status" data-estado>Descreva a voz e gere uma prévia para salvar o perfil.</p>
@@ -89,12 +89,46 @@ window.AREAS.push({
         descricao.focus();
       });
     });
-    raiz.querySelector("[data-ir-config]").addEventListener("click", (evento) => {
-      evento.preventDefault();
-      document.querySelector('[data-alvo="config"]')?.click();
-    });
+    // O desenho depende de um motor só. Se ele está fora, a tela PRECISA dizer
+    // isso e travar o botão: antes ela mandava o aluno para a CONFIGURAÇÃO, que
+    // não tem seletor de motor, e ele só descobria no erro depois de preencher tudo.
+    const avisoMotor = raiz.querySelector("[data-aviso-motor]");
+    let motorLiberado = false;
+
+    async function conferirMotor() {
+      try {
+        const catalogo = await fetch("/api/motores").then(ler);
+        const motor = catalogo.find((item) => item.id === "voxcpm2");
+        if (motor && motor.disponivel) {
+          motorLiberado = true;
+          botao.disabled = false;
+          avisoMotor.textContent = "O desenho usa o VoxCPM2, que está disponível nesta máquina.";
+          return;
+        }
+        motorLiberado = false;
+        botao.disabled = true;
+        // O motivo vem do backend como frase fechada, começando com maiúscula
+        // ("Derruba a base ao gerar..."). Emendado no meio da nossa frase ele soa
+        // quebrado, então entra depois de "Motivo:".
+        const porque = (motor?.motivo || "o motor não está instalado nesta máquina")
+          .trim()
+          .replace(/\.$/, "");
+        avisoMotor.textContent =
+          `Esta área está indisponível. Motivo: ${porque}. ` +
+          `O desenho depende do ${motor?.nome || "VoxCPM2"}, que o estúdio não pode ligar aqui. ` +
+          "Para criar uma voz, use Clonar (com um áudio seu) ou Gerar (com uma voz da lista).";
+      } catch (erro) {
+        motorLiberado = false;
+        botao.disabled = true;
+        avisoMotor.textContent = `Não deu para conferir o motor de desenho: ${erro.message}`;
+      }
+    }
     form.addEventListener("submit", async (evento) => {
       evento.preventDefault();
+      if (!motorLiberado) {
+        estado.textContent = "Esta área está indisponível nesta máquina. Veja o motivo no aviso acima.";
+        return;
+      }
       botao.disabled = true;
       botao.textContent = "Desenhando a voz...";
       estado.textContent = "Carregando o VoxCPM2 e criando a prévia. O primeiro uso pode demorar.";
@@ -119,11 +153,14 @@ window.AREAS.push({
       } catch (erro) {
         estado.textContent = `Erro: ${erro.message}`;
       } finally {
-        botao.disabled = false;
+        // Só devolve o botão se o motor continua liberado: sem isso, um erro
+        // reabilitava o botão e o aluno voltava a levar 409.
+        botao.disabled = !motorLiberado;
         botao.textContent = "Ouvir e salvar perfil";
       }
     });
 
+    conferirMotor();
     atualizarLista();
   },
 });

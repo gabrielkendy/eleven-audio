@@ -43,6 +43,16 @@ window.AREAS.push({
     const botao = form.querySelector("button[type=submit]");
     let motores = [];
 
+    // A base devolve nomes longos ("VoiceStudio (k2-fsa/OmniVoice, 600+ languages)").
+    // Numa linha de comparação eles empurram o select e cortam o rótulo ao lado.
+    // A tela Gerar já encurta assim; aqui vale a mesma regra.
+    const NOMES_CURTOS = {
+      omnivoice: "OmniVoice", "omnivoice-subprocess": "OmniVoice · isolado",
+      voxcpm2: "VoxCPM2", kittentts: "KittenTTS · inglês",
+      "chatterbox-ptbr": "Chatterbox V3 · PT-BR",
+    };
+    const nomeCurto = (motor) => NOMES_CURTOS[motor.id] || motor.nome.split(" (")[0];
+
     async function ler(resposta) {
       const corpo = await resposta.json();
       if (!resposta.ok) throw new Error(corpo.detail || resposta.statusText);
@@ -52,21 +62,36 @@ window.AREAS.push({
     function preencherMotores() {
       [form.elements.motor_a, form.elements.motor_b].forEach((select) => {
         select.replaceChildren(...motores.map((motor) => new Option(
-          motor.disponivel ? motor.nome : `${motor.nome} · indisponível`,
+          motor.disponivel ? nomeCurto(motor) : `${nomeCurto(motor)} · indisponível`,
           motor.id,
         )));
       });
       form.elements.motor_a.value = motores[0]?.id || "";
       form.elements.motor_b.value = motores.find((motor) => motor.id !== form.elements.motor_a.value)?.id || "";
       mostrarMotivos();
+      // Comparar exige DOIS motores vivos. Com um só, o botão tem que travar e
+      // dizer o motivo, em vez de prometer uma comparação que não existe.
+      if (motores.length < 2) {
+        botao.disabled = true;
+        estado.textContent = motores.length === 1
+          ? `Só há um motor disponível nesta máquina (${nomeCurto(motores[0])}), então não há o que comparar. Para comparar, libere outro motor na área Configuração.`
+          : "Nenhum motor disponível para comparar nesta máquina.";
+      } else {
+        botao.disabled = false;
+        estado.textContent = "Escolha dois motores e clique em comparar.";
+      }
     }
 
     function mostrarMotivos() {
       [["a", form.elements.motor_a], ["b", form.elements.motor_b]].forEach(([lado, select]) => {
         const motor = motores.find((item) => item.id === select.value);
+        // Só motores disponíveis entram na lista, então escrever "disponível" era
+        // ruído que ainda cortava em "dispo...". O que ajuda a decidir é onde ele
+        // roda: cuda é rápido, cpu demora minutos.
+        const onde = (motor?.dispositivo || "").toLowerCase();
         raiz.querySelector(`[data-motivo-${lado}]`).textContent = motor?.disponivel
-          ? "disponível"
-          : (motor?.motivo || "indisponível sem motivo informado");
+          ? (/cuda/.test(onde) ? "na placa" : /cpu/.test(onde) ? "no processador" : "")
+          : (motor?.motivo || "indisponível");
       });
     }
 
@@ -76,7 +101,11 @@ window.AREAS.push({
           fetch("/api/motores").then(ler),
           fetch("/api/perfis").then(ler),
         ]);
-        motores = catalogo.filter((motor) => motor.id !== "mock");
+        // Só entram os motores que REALMENTE podem ser comparados. Os
+        // indisponíveis (kittentts, voxcpm2 e companhia) e o sintético ficam de
+        // fora: antes eles apareciam na lista e o aluno escolhia um deles para
+        // depois levar erro, sem nunca saber que não dava.
+        motores = catalogo.filter((motor) => motor.id !== "mock" && motor.disponivel);
         preencherMotores();
         form.elements.perfil_id.replaceChildren(...perfis.map((perfil) => new Option(
           `${perfil.nome} · ${perfil.origem}`,

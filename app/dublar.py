@@ -287,8 +287,13 @@ def dublar(
         "perfil_id": perfil_id,
         # Não reportamos o `language` da base como "detectado": ele é eco do que
         # enviamos, não detecção. O que vale é como a origem foi decidida.
+        #
+        # Também NÃO devolvemos o campo `bruto`: ele guarda a resposta crua do
+        # modelo, que às vezes traz o rascunho interno em inglês ("The user wants
+        # me to identify the language..."). Isso ia para a tela do aluno. O que
+        # interessa é o nome do idioma, que já vem em `nome`.
         "origem_decidida_por": "escolhida por você" if fonte_pedida else (
-            f"detectada no texto ({deteccao.get('bruto', '')})".strip()
+            f"detectada no texto como {deteccao.get('nome') or deteccao.get('codigo') or 'idioma desconhecido'}"
             if deteccao.get("detectado") else "não informada"
         ),
     }

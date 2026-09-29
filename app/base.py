@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import time
 import wave
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -31,11 +32,43 @@ def saudavel(config: Configuracao) -> bool:
         return False
 
 
-def listar_motores(config: Configuracao) -> dict[str, object]:
+# A base leva ~2,1 s para responder /engines/tts (medido em 29/09/2026: /health
+# responde em 0,02 s, então não é a rede, é o trabalho dela). Esse é o gargalo de
+# TODA tela que mostra motor: Gerar, Comparar e Configuração abriam com "Carregando..."
+# por causa disso, e parecia travamento. O catálogo quase não muda, então guardamos
+# por alguns segundos e a primeira tela paga o custo sozinha.
+CATALOGO_VALIDADE_S = 60.0
+_catalogo: dict[str, object] = {}
+_catalogo_em: float = 0.0
+
+
+def listar_motores(config: Configuracao, *, forcar: bool = False) -> dict[str, object]:
+    """Catálogo de motores da base, com cache curto.
+
+    `forcar=True` ignora o cache: use quando o motor ativo acabou de mudar e a tela
+    precisa do estado novo, não do que estava guardado.
+    """
+    global _catalogo, _catalogo_em
+    agora = time.monotonic()
+    if not forcar and _catalogo and (agora - _catalogo_em) < CATALOGO_VALIDADE_S:
+        return _catalogo
     with httpx.Client(timeout=min(config.timeout_s, 30.0)) as cliente:
         resposta = cliente.get(f"{config.base_url}/engines/tts")
         resposta.raise_for_status()
-        return resposta.json()
+        _catalogo = resposta.json()
+        _catalogo_em = agora
+        return _catalogo
+
+
+def esquecer_catalogo() -> None:
+    """Joga o cache fora.
+
+    Chamado quando o motor ativo muda: sem isso a tela mostraria o motor antigo
+    por até um minuto, que é pior do que esperar.
+    """
+    global _catalogo, _catalogo_em
+    _catalogo = {}
+    _catalogo_em = 0.0
 
 
 def selecionar_motor(config: Configuracao, motor: str) -> None:
@@ -46,6 +79,8 @@ def selecionar_motor(config: Configuracao, motor: str) -> None:
                 json={"family": "tts", "backend_id": motor},
             )
             resposta.raise_for_status()
+        # O motor ativo mudou: o catálogo guardado já não vale.
+        esquecer_catalogo()
     except httpx.HTTPStatusError as erro:
         raise ErroBase(f"a base recusou o motor: {erro.response.text}") from erro
     except httpx.HTTPError as erro:

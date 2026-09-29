@@ -49,7 +49,10 @@ def test_aviso_so_aparece_quando_proibe() -> None:
     assert aviso is not None
     assert "CC-BY-NC" in aviso
     assert "NÃO pode ser usado para vender" in aviso
-    assert "voxcpm2" in aviso
+    # O aviso NUNCA pode sugerir um motor que o app bloqueia: sugerir o VoxCPM2
+    # mandava o aluno para uma tela que só devolvia erro. Regressão pega aqui.
+    assert "voxcpm2" not in aviso
+    assert "chatterbox-ptbr" in aviso
 
     assert licencas.aviso_comercial("voxcpm2") is None
     assert licencas.aviso_comercial("motor-que-nao-existe") is None

@@ -509,3 +509,23 @@ button.item-historico small { color: var(--texto-tenue); }
 .detalhe-texto { display: grid; gap: 6px; }
 .detalhe-texto p { margin: 0; padding: 11px 13px; max-height: 190px; overflow: auto; border: 1px solid var(--borda); border-radius: var(--raio-pequeno); background: var(--cartao); color: var(--texto-fraco); line-height: 1.5; }
 .detalhe-texto small { color: var(--texto-tenue); }
+
+
+/* ---------- Comparar motores: o select nao pode engolir o rotulo ---------- */
+
+/* Os dois selects da comparacao trazem nomes curtos, mas o select ainda e um
+   elemento que nao encolhe sozinho. Sem isto ele empurra o rotulo de
+   dispositivo para fora e ele aparece como "na p...", que nao diz nada.
+   O select cede espaco; o rotulo, nao. */
+.chip > select {
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
+}
+
+.chip > small {
+  flex: 0 0 auto;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+}
