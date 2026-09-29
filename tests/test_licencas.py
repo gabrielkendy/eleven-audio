@@ -58,6 +58,28 @@ def test_aviso_so_aparece_quando_proibe() -> None:
     assert licencas.aviso_comercial("motor-que-nao-existe") is None
 
 
+def test_aviso_nunca_oferece_motor_bloqueado() -> None:
+    """A regra vale contra a lista viva de bloqueios, nao contra um nome fixo.
+
+    Travar so "voxcpm2" protegia o defeito de ontem: bastava um motor novo entrar
+    em `bloqueios.py` para o aviso voltar a mandar o aluno para uma tela que so
+    devolve erro. A lista crua e cruzada com os bloqueados de agora, entao a
+    sugestao se corrige sozinha quando a lista muda. Antes so o texto montado era
+    conferido, e por isso tirar o motor da tupla passava batido.
+    """
+    from app import bloqueios
+
+    sujos = [m for m in licencas.ALTERNATIVAS_COMERCIAIS if bloqueios.motivo(m)]
+    assert not sujos, f"a lista oferece motor bloqueado: {sujos}"
+
+    aviso = licencas.aviso_comercial("omnivoice") or ""
+    vazados = [m for m in licencas.ALTERNATIVAS_COMERCIAIS if bloqueios.motivo(m) and m in aviso]
+    assert not vazados, f"o aviso escrito oferece motor bloqueado: {vazados}"
+
+    assert "chatterbox-ptbr" in aviso, "sumiu a alternativa comercial boa"
+    assert licencas.alternativas_uteis(), "sobrou nenhuma alternativa comercial"
+
+
 def test_catalogo_traz_licenca_e_aviso(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """O catalogo vem stubado: a suite nao sobe servico nem depende da base estar no ar.
 

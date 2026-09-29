@@ -814,6 +814,31 @@ def test_dublar_pede_auto_ao_transcritor_quando_nao_escolhem_origem(
     assert idiomas_enviados[0] == "auto", idiomas_enviados
 
 
+def test_dublar_nao_le_o_campo_bruto_da_deteccao() -> None:
+    """O `bruto` da deteccao nao pode ser lido por este modulo, em lugar nenhum.
+
+    Medido em 29/09/2026: `detectar_idioma` devolve, alem do nome do idioma, um
+    campo `bruto` com a resposta crua do modelo. Quando o modelo pensa em voz
+    alta, esse campo traz o rascunho interno em ingles ("The user wants me to
+    identify the language..."), e ele ia inteiro para a mensagem que explica como
+    a origem foi decidida. O aluno lia isso na tela.
+
+    A trava e no fonte de proposito: um mock de rede provava so o caminho feliz, e
+    o vazamento voltava por qualquer outro. Aqui nao tem caminho: se o nome
+    reaparecer no arquivo, o teste cai.
+    """
+    linhas = Path(dublar.__file__).read_text(encoding="utf-8").splitlines()
+    # So o CODIGO conta: o comentario acima cita `bruto` de proposito, para
+    # explicar por que ele nao entra. Explicacao nao vaza dado.
+    codigo = [linha.strip() for linha in linhas if not linha.lstrip().startswith("#")]
+    sujas = [linha for linha in codigo if "bruto" in linha]
+    assert not sujas, (
+        "o campo `bruto` da deteccao voltou ao codigo do dublar.py. Ele carrega o "
+        "rascunho interno do modelo; use `nome`/`codigo`, que e o que o aluno le. "
+        f"Linhas: {sujas}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # para_motor: o codigo da tela -> o codigo que o MOTOR de voz reconhece
 #
