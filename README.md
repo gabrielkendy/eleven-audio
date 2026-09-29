@@ -11,7 +11,8 @@ Autor: Gabriel Kendy (Agência BASE)
 
 ## Instalar em 1 clique
 
-1. Baixe o pacote na página de **[Releases](../../releases/latest)**
+1. Baixe o pacote: **[eleven-audio.zip](../../releases/latest/download/eleven-audio.zip)**
+   (506 KB, link fixo: sempre a versão mais nova)
 2. Descompacte onde quiser
 3. Duplo clique em **`instalador/INSTALAR.bat`**
 
@@ -31,10 +32,12 @@ depende do que você escolher na tela).
 
 ### Ou deixe a sua IA instalar
 
-Tem Claude Code, Cursor, Codex ou similar? Cole o conteúdo de
-**[`INSTALAR-COM-IA.md`](INSTALAR-COM-IA.md)** na IA. Ela confere a máquina,
-instala, sobe os serviços e **prova que funcionou** — e se algo der errado, sabe
-onde olhar.
+Tem Claude Code, Cursor, Codex ou similar? Cole o **[`PROMPT-INSTALAR.md`](PROMPT-INSTALAR.md)**
+na IA. Ela baixa, instala, cria o atalho, baixa os modelos e **prova que
+funcionou** — e se algo der errado, sabe onde olhar.
+
+O guia completo (com tabela de erros e requisitos) está em
+**[`INSTALAR-COM-IA.md`](INSTALAR-COM-IA.md)**.
 
 O prompt manda a IA usar o instalador testado em vez de improvisar, e explica por
 quê (o `uv`, o índice de CUDA, o caminho do app). IA que reinventa esses passos
