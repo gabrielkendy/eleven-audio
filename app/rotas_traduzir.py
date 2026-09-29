@@ -13,6 +13,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from app import dub_base as base_dub
 from app import dublar as dublagem
 from app import traducao
 from app.cofre import abrir
@@ -197,6 +198,85 @@ def criar_router(config: Configuracao) -> APIRouter:
             banco.registrar_transcricao(
                 arquivo_entrada=str(resultado["arquivo"]),
                 motor=f"dublagem:{motor_escolhido}",
+                texto_saida=str(resultado["texto_traduzido"]),
+                idioma_detectado=str(resultado["origem"]),
+            )
+        finally:
+            banco.fechar()
+        return resultado
+
+    @rotas.post("/api/dublar-completo")
+    def dublar_completo(
+        arquivo: Annotated[UploadFile, File()],
+        destino: Annotated[str, Form()] = "en",
+        origem: Annotated[str, Form()] = "",
+        perfil_id: Annotated[str, Form()] = "",
+        tradutor: Annotated[str, Form()] = "auto",
+        timing: Annotated[str, Form()] = base_dub.TEMPO_PADRAO,
+    ) -> dict[str, object]:
+        """Dublagem completa: separa a voz do fundo, respeita o tempo da fala.
+
+        Diferente de `/api/dublar`, que transcreve, traduz e sintetiza de uma vez,
+        esta rota usa a pipeline da base: demucs separa voz e trilha, a
+        transcricao traz o tempo de cada trecho, e a geracao encaixa a fala nova
+        no tempo do original. E mais lenta e entrega mais.
+        """
+        if not arquivo.filename:
+            raise HTTPException(status_code=400, detail="Selecione um áudio para dublar.")
+        alvo = traducao.normalizar(destino)
+        if not alvo:
+            raise HTTPException(status_code=422, detail="Escolha o idioma de destino.")
+        if alvo not in traducao.IDIOMAS:
+            raise HTTPException(
+                status_code=422, detail=f"Idioma de destino desconhecido: {destino}."
+            )
+
+        # O perfil que a tela manda e o id LOCAL; a base conhece outro id, e so a
+        # clonagem com consentimento pode ser usada. Mesma resolucao de /api/dublar.
+        banco = abrir(config.dados / "estudio.db")
+        try:
+            perfil_base = None
+            if perfil_id:
+                perfil = banco.perfil(perfil_id)
+                if not perfil:
+                    raise HTTPException(status_code=404, detail="Perfil de voz não encontrado.")
+                if perfil["origem"] == "clonado" and not banco.tem_consentimento(perfil_id):
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Este perfil não tem consentimento registrado.",
+                    )
+                perfil_base = perfil["id_na_base"]
+        finally:
+            banco.fechar()
+
+        if not perfil_base:
+            raise HTTPException(
+                status_code=422,
+                detail="Escolha a voz. Cole um áudio de referência na aba Clonar primeiro.",
+            )
+
+        conteudo = arquivo.file.read()
+        if not conteudo:
+            raise HTTPException(status_code=400, detail="O arquivo chegou vazio.")
+        try:
+            resultado = base_dub.dublar_pela_base(
+                conteudo=conteudo,
+                nome_arquivo=arquivo.filename,
+                destino_idioma=alvo,
+                perfil_id=perfil_base,
+                config=config,
+                origem_idioma=origem,
+                tradutor=tradutor,
+                tempo=timing,
+            )
+        except base_dub.ErroDublagemBase as erro:
+            raise HTTPException(status_code=422, detail=str(erro)) from erro
+
+        banco = abrir(config.dados / "estudio.db")
+        try:
+            banco.registrar_transcricao(
+                arquivo_entrada=str(resultado["arquivo"]),
+                motor=f"dublagem-completa:{resultado.get('timing')}",
                 texto_saida=str(resultado["texto_traduzido"]),
                 idioma_detectado=str(resultado["origem"]),
             )

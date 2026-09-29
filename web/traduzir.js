@@ -67,6 +67,9 @@ window.AREAS.push({
           </label>
         </div>
         <div class="linha-acao">
+          <label class="chip">Dublagem
+            <select data-modo-dub></select>
+          </label>
           <label class="chip">Tradutor
             <select data-tradutor-dub></select>
           </label>
@@ -206,6 +209,42 @@ window.AREAS.push({
         seletor.replaceChildren(...TRADUTORES.map((t) => new Option(t.rotulo, t.valor)));
         seletor.value = "auto";
       }
+    }
+
+    // Dois caminhos de dublagem, e a diferenca importa na hora de usar:
+    //  - completa: a base separa a voz do fundo (demucs), o texto sai com tempo
+    //    por trecho e a fala nova e encaixada no tempo do original. Mantem a
+    //    trilha e respeita quem fala quando. Mais lenta.
+    //  - simples: transcreve, traduz e sintetiza de uma vez. Nao preserva tempo
+    //    nem trilha, mas responde bem mais rapido.
+    const MODOS_DUBLAGEM = [
+      { valor: "completa", rotulo: "Completa · mantém trilha e tempo" },
+      { valor: "simples", rotulo: "Simples · mais rápida" },
+    ];
+
+    function preencherModosDublagem() {
+      const seletor = raiz.querySelector("[data-modo-dub]");
+      if (!seletor) return;
+      seletor.replaceChildren(...MODOS_DUBLAGEM.map((m) => new Option(m.rotulo, m.valor)));
+      seletor.value = "completa";
+
+      // No modo completo quem sintetiza e a base, entao o motor de voz da tela
+      // nao vale nada ali. Deixar habilitado faria escolher um motor que nunca
+      // entra, e a pessoa so descobriria ouvindo o resultado.
+      const ajustarMotor = () => {
+        const campoMotor = raiz.querySelector("[data-motor-dub]");
+        const chipMotor = campoMotor && campoMotor.closest("label");
+        const completo = seletor.value === "completa";
+        if (campoMotor) campoMotor.disabled = completo;
+        if (chipMotor) {
+          chipMotor.style.opacity = completo ? "0.45" : "";
+          chipMotor.title = completo
+            ? "A dublagem completa usa o motor da base, não este."
+            : "";
+        }
+      };
+      seletor.addEventListener("change", ajustarMotor);
+      ajustarMotor();
     }
 
     let motoresDisponiveis = [];
@@ -393,13 +432,20 @@ window.AREAS.push({
       const inicio = performance.now();
       try {
         const dados = new FormData();
+        const modo = raiz.querySelector("[data-modo-dub]").value;
         dados.set("arquivo", arquivoDub, arquivoDub.name);
         dados.set("destino", raiz.querySelector("[data-idioma-destino-dub]").value);
         dados.set("origem", raiz.querySelector("[data-idioma-fonte-dub]").value);
         dados.set("perfil_id", perfil);
-        dados.set("motor", raiz.querySelector("[data-motor-dub]").value);
         dados.set("tradutor", raiz.querySelector("[data-tradutor-dub]").value);
-        const r = await fetch("/api/dublar", { method: "POST", body: dados }).then(ler);
+        if (modo === "completa") {
+          // A completa nao usa o motor de voz da tela: quem sintetiza e a base.
+          dados.set("timing", "smart_fit");
+        } else {
+          dados.set("motor", raiz.querySelector("[data-motor-dub]").value);
+        }
+        const rota = modo === "completa" ? "/api/dublar-completo" : "/api/dublar";
+        const r = await fetch(rota, { method: "POST", body: dados }).then(ler);
 
         const player = raiz.querySelector("[data-player-dub]");
         player.src = `/api/audio?caminho=${encodeURIComponent(r.arquivo)}`;
@@ -409,7 +455,13 @@ window.AREAS.push({
         const total = ((performance.now() - inicio) / 1000).toFixed(1).replace(".", ",");
         raiz.querySelector("[data-detalhe-dub]").textContent =
           `${r.origem_nome} → ${r.destino_nome} · ${r.pedacos} trecho(s) · ` +
-          `${Number(r.duracao_audio_s).toFixed(1).replace(".", ",")} s de áudio · ${total} s no total` +
+          (r.varios_falantes
+            ? `${r.falantes.length} falantes · `
+            : "") +
+          (r.duracao_audio_s
+            ? `${Number(r.duracao_audio_s).toFixed(1).replace(".", ",")} s de áudio · `
+            : "") +
+          `${total} s no total` +
           (r.tradutor ? ` · traduzido por: ${r.tradutor}` : "") +
           (r.observacao ? ` · ${r.observacao}` : "");
         raiz.querySelector("[data-resultado-dub]").hidden = false;
@@ -527,6 +579,7 @@ window.AREAS.push({
 
     carregarIdiomas();
     preencherTradutores();
+    preencherModosDublagem();
     carregarVozes();
   },
 });

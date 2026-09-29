@@ -217,6 +217,59 @@ o que funciona sem modelo carregado.
 O texto longo também passa: 238 palavras traduzidas inteiras em **8 s**, sem truncar
 nem encher linguiça.
 
+### Duas dublagens: completa e simples
+
+A tela deixa escolher, no campo **Dublagem**:
+
+| modo | o que faz | quando usar |
+|---|---|---|
+| **Completa** (padrão) | A base separa a voz da trilha (demucs), transcreve com o tempo de cada trecho e encaixa a fala nova no tempo do original. Mantém a música de fundo | dublar vídeo, entrevista, qualquer coisa com trilha ou mais de uma pessoa |
+| **Simples** | Transcreve, traduz e sintetiza de uma vez | quando a pressa importa mais que o encaixe |
+
+**Medido em 29/09/2026**, num trecho de 10 s de português:
+
+```
+original   segmentos: [0,87-4,28] e [4,28-9,98]
+dublado    segmentos: [0,85-4,08] e [4,27-9,50]
+duração do dublado: 10,00 s, igual ao original
+sync_scores: [1.067, 0.942]
+```
+
+A fala nova cai praticamente no mesmo lugar que a antiga. Na simples isso não
+acontece: o áudio sai com a duração que a voz quiser.
+
+Outras diferenças medidas:
+
+- **Trilha**: a completa separa `vocals.wav` da música (`no_vocals.wav`), então a
+  música continua no dublado. A simples descarta tudo que não é voz.
+- **Vários falantes**: a completa identifica quem fala (`speaker_id`) e avisa na
+  resposta em quantos falantes o áudio foi dividido.
+- **No modo completo o campo Motor fica desabilitado**: quem sintetiza é a base,
+  não o motor escolhido na tela, e deixar habilitado faria escolher um motor que
+  nunca entra.
+
+### Armadilhas da pipeline da base, medidas em 29/09/2026
+
+Nenhuma aparece na suíte de testes, porque todas vêm do comportamento da base:
+
+1. **O upload é assíncrono.** Ele roda extract e demucs em segundo plano. Só
+   depois do evento `ready` no `/tasks/stream/{task_id}` a transcrição funciona.
+   Tentar antes devolve `Job not found`, que parece erro de identificador e não é.
+2. **O `source_lang` da base não é confiável.** Ela marcou `'en'` num áudio
+   claramente em português. Por isso o idioma de origem é detectado pelo texto,
+   com o modelo local, em `app/dub_base.py`.
+3. **`start` e `end` chegam como texto** (`"0.87"`), não número. Sem converter, o
+   encaixe no tempo falha em silêncio e o áudio sai fora de sincronia.
+4. **`/dub/audio` devolve a ENTRADA.** O dublado está em `/dub/download-audio`.
+   Confundir os dois entrega o áudio original com nome de dublado.
+5. **`profile_id` precisa ir em todos os segmentos.** Sem ele a base clona o
+   falante original, o que é ótimo para dublar outra pessoa e errado quando o
+   pedido é sair na voz escolhida. Medido: com o identificador errado o áudio sai
+   diferente, com o certo sai na sua voz.
+6. **O perfil local não é o perfil da base.** `vz-b2f95272834d` é o id local;
+   `2bee8696` é o que a base conhece. Mandar o local faz a base cair na clonagem
+   automática sem avisar.
+
 ### Pacotes de idioma (a tela baixa o que falta)
 
 O tradutor é offline e cada par de idiomas é um pacote que baixa uma vez e fica na
