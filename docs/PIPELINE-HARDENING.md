@@ -55,7 +55,7 @@ plugins: anyio-4.15.1
 collected 123 items
 
 ============================== warnings summary ===============================
-..\..\.venvs\eleven-audio\Lib\site-packages\starlette\testclient.py:45
+C:\caminho\para\o-venv-do-projeto\Lib\site-packages\starlette\testclient.py:45
   C:\caminho\para\o-venv-do-projeto\Lib\site-packages\starlette\testclient.py:45: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
 
