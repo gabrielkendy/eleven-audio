@@ -464,3 +464,48 @@ ol.grade-cartoes li span { margin-top: 4px; color: var(--texto-fraco); font-size
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+/* ── Histórico (lista + detalhe) e aba Configurações ────────────────────────── */
+.painel-config { display: grid; gap: 14px; padding: 16px 20px 20px; }
+.config-cabecalho { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.config-cabecalho h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.config-cabecalho small { color: var(--texto-tenue); }
+.config-linhas { display: grid; gap: 0; border: 1px solid var(--borda); border-radius: var(--raio-pequeno); overflow: hidden; }
+.config-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 9px 13px; background: var(--cartao); border-top: 1px solid var(--borda); }
+.config-linha:first-child { border-top: 0; }
+.config-rotulo { color: var(--texto-tenue); }
+.config-valor { color: var(--texto); font-variant-numeric: tabular-nums; text-align: right; }
+.config-form { display: grid; gap: 12px; padding-top: 4px; }
+.config-form .primario { justify-self: start; }
+.config-status { color: var(--texto-tenue); }
+.config-status:not(:empty) { padding: 8px 11px; border: 1px solid var(--borda); border-radius: var(--raio-pequeno); background: var(--painel); color: var(--texto-fraco); }
+
+[data-painel="historico"],
+[data-painel="config"] { display: grid; max-height: clamp(360px, calc(100vh - 190px), 760px); overflow: auto; align-content: start; }
+[data-painel="config"] .painel-config { overflow: visible; }
+.historico-topo { position: sticky; top: 0; z-index: 2; display: grid; gap: 10px; margin: 0; padding: 14px 18px 10px; background: var(--cartao); border-bottom: 1px solid var(--borda); }
+[data-campo="busca-historico"] { margin: 0; }
+.chips-filtro { display: flex; gap: 7px; padding: 0; flex-wrap: wrap; }
+.chip-filtro { min-height: 28px; padding: 4px 11px; border: 1px solid var(--borda); border-radius: 999px; background: var(--cartao); color: var(--texto-fraco); font-size: 12px; }
+.chip-filtro.ativo { border-color: var(--texto); color: var(--texto); background: var(--cartao-alto); }
+.grupo-dia { padding: 14px 18px 4px; color: var(--texto-tenue); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+button.item-historico { width: 100%; text-align: left; border: 0; border-top: 1px solid var(--borda); border-radius: 0; background: transparent; cursor: pointer; }
+button.item-historico:hover { background: var(--painel); }
+button.item-historico strong { font-weight: 500; line-height: 1.35; }
+button.item-historico small { color: var(--texto-tenue); }
+
+[data-vista="historico-detalhe"] { display: grid; gap: 12px; padding: 14px 18px 20px; }
+.voltar { justify-self: start; min-height: 32px; padding: 4px 10px; border: 0; background: transparent; color: var(--texto-fraco); }
+.voltar:hover { background: var(--painel); color: var(--texto); }
+.detalhe-topo { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.chip-quando { padding: 3px 10px; border: 1px solid var(--borda); border-radius: 999px; background: var(--cartao-alto); color: var(--texto-fraco); font-size: 12px; }
+.detalhe-id { color: var(--texto-tenue); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.detalhe-acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.secundario { display: inline-flex; min-height: 36px; align-items: center; padding: 7px 13px; border: 1px solid var(--borda); border-radius: var(--raio-pequeno); background: var(--cartao); color: var(--texto); text-decoration: none; }
+.secundario:hover { border-color: var(--borda-forte); background: var(--cartao-alto); }
+.secundario.desabilitado, .secundario[aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
+.detalhe-config h4, .detalhe-texto h4 { margin: 0 0 8px; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--texto-tenue); }
+.detalhe-config { display: grid; }
+.detalhe-texto { display: grid; gap: 6px; }
+.detalhe-texto p { margin: 0; padding: 11px 13px; max-height: 190px; overflow: auto; border: 1px solid var(--borda); border-radius: var(--raio-pequeno); background: var(--cartao); color: var(--texto-fraco); line-height: 1.5; }
+.detalhe-texto small { color: var(--texto-tenue); }

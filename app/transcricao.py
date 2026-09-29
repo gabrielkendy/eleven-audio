@@ -29,9 +29,16 @@ def guardar_arquivo(arquivo: BinaryIO, nome: str, pasta_dados: Path) -> Path:
     return destino
 
 
-def transcrever(caminho: Path, idioma: str, config: Configuracao) -> dict[str, Any]:
+def transcrever(
+    caminho: Path,
+    idioma: str,
+    config: Configuracao,
+    transporte: httpx.BaseTransport | None = None,
+) -> dict[str, Any]:
     try:
-        with caminho.open("rb") as audio, httpx.Client(timeout=config.timeout_s) as cliente:
+        with caminho.open("rb") as audio, httpx.Client(
+            timeout=config.timeout_s, transport=transporte
+        ) as cliente:
             resposta = cliente.post(
                 f"{config.base_url}/transcribe",
                 files={"audio": (caminho.name, audio)},

@@ -189,9 +189,19 @@ def p5_caminho_confinado(raiz: Path) -> Achado:
 
 
 def p6_escrita_atomica(raiz: Path) -> Achado:
-    """Escrita em arquivo de dado passa por temporario, fsync e replace."""
+    """Escrita em arquivo de dado passa por temporario, fsync e replace.
+
+    Testes ficam fora desta regra. O P6 mede escrita de **dado do app**, que
+    precisa de troca atomica para nao corromper se o processo morrer no meio. Um
+    teste que cria um arquivo temporario para provar uma trava de caminho nao e
+    dado do app, e exigir `os.replace` ali so empurraria o teste para longe do que
+    ele verifica. As outras regras continuam varrendo os testes normalmente, entao
+    segredo ou caminho pessoal em teste continua sendo pego.
+    """
     escrita_direta = []
     for rel, numero, linha in varrer_codigo(raiz, {".py"}):
+        if rel.startswith("tests/"):
+            continue
         if re.search(r"open\([^)]*dados[^)]*['\"]w", linha) or \
            re.search(r"\.write_text\(|json\.dump\(", linha):
             # escrita legitima quando e dentro do cofre com temporario

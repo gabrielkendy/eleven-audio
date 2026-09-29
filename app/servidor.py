@@ -14,6 +14,7 @@ from app import (
     rotas_clonar,
     rotas_comparar,
     rotas_desenhar,
+    rotas_traduzir,
     rotas_transcrever,
 )
 from app.config import Configuracao, carregar_config
@@ -25,6 +26,7 @@ ROTAS_DAS_FATIAS = (
     rotas_desenhar,
     rotas_transcrever,
     rotas_agente,
+    rotas_traduzir,
 )
 
 

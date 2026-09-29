@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS geracao (
     tamanho_bytes INTEGER NOT NULL,
     criado_em TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('ok', 'erro')),
-    erro TEXT
+    erro TEXT,
+    config_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS transcricao (
@@ -105,7 +106,19 @@ class Cofre:
         self._conexao.execute("PRAGMA journal_mode=WAL")
         self._conexao.execute("PRAGMA foreign_keys=ON")
         self._conexao.executescript(ESQUEMA)
+        self._migrar()
         self._conexao.commit()
+
+    def _migrar(self) -> None:
+        """Acrescenta colunas que nasceram depois, sem perder banco existente.
+
+        O histórico do ElevenLabs mostra as configurações de cada geração; para
+        isso o banco precisa guardá-las. Bancos criados antes disso não têm a
+        coluna, então ela entra por ALTER TABLE na abertura.
+        """
+        colunas = {linha["name"] for linha in self._conexao.execute("PRAGMA table_info(geracao)")}
+        if "config_json" not in colunas:
+            self._conexao.execute("ALTER TABLE geracao ADD COLUMN config_json TEXT")
 
     def fechar(self) -> None:
         self._conexao.close()
@@ -253,14 +266,15 @@ class Cofre:
         status: str = "ok",
         erro: str | None = None,
         geracao_id: str | None = None,
+        configuracao: dict[str, Any] | None = None,
     ) -> str:
         identificador = geracao_id or novo_id("g-")
         self._executar(
             """
             INSERT INTO geracao (
                 id, perfil_id, motor, texto_entrada, arquivo_saida, duracao_audio_s,
-                duracao_geracao_s, dispositivo, tamanho_bytes, criado_em, status, erro
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                duracao_geracao_s, dispositivo, tamanho_bytes, criado_em, status, erro, config_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 identificador,
@@ -275,10 +289,22 @@ class Cofre:
                 agora(),
                 status,
                 erro,
+                json.dumps(configuracao, ensure_ascii=False) if configuracao else None,
             ),
         )
         self.registrar_evento("gerar" if status == "ok" else "erro", f"geracao {identificador} com {motor}")
         return identificador
+
+    def configuracao_da_geracao(self, registro: dict[str, Any]) -> dict[str, Any] | None:
+        """Le a configuracao gravada na geracao (coluna TEXT, JSON)."""
+        bruto = registro.get("config_json")
+        if not bruto:
+            return None
+        try:
+            dado = json.loads(bruto)
+        except (TypeError, json.JSONDecodeError):
+            return None
+        return dado if isinstance(dado, dict) else None
 
     def geracao(self, geracao_id: str) -> dict[str, Any] | None:
         linhas = self._linhas("SELECT * FROM geracao WHERE id = ?", (geracao_id,))
@@ -301,13 +327,16 @@ class Cofre:
             parametros.append(motor)
         onde = f"WHERE {' AND '.join(condicoes)}" if condicoes else ""
         parametros.append(limite)
+        # `criado_em` tem resolucao de segundo: duas geracoes no mesmo segundo
+        # empatam e o SQLite devolve na ordem de insercao, o que fazia o
+        # historico mostrar a mais antiga primeiro. O rowid desempata.
         return self._linhas(
-            f"SELECT * FROM geracao {onde} ORDER BY criado_em DESC LIMIT ?",
+            f"SELECT * FROM geracao {onde} ORDER BY criado_em DESC, rowid DESC LIMIT ?",
             tuple(parametros),
         )
 
     def ultima_geracao(self) -> dict[str, Any] | None:
-        linhas = self._linhas("SELECT * FROM geracao ORDER BY criado_em DESC LIMIT 1")
+        linhas = self._linhas("SELECT * FROM geracao ORDER BY criado_em DESC, rowid DESC LIMIT 1")
         return linhas[0] if linhas else None
 
     # ------------------------------------------------------------ transcricao

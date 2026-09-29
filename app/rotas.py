@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -9,7 +10,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query
 
 from app import ajustes as ajustes_de_qualidade
-from app import base, clonar, cofre, ffmpeg, licencas, marcas, saidas
+from app import base, clonar, cofre, ffmpeg, licencas, marcas, quando, saidas
 from app.chatterbox_local import disponivel as chatterbox_disponivel
 from app.chatterbox_local import sintetizar_chatterbox
 from app.config import Configuracao
@@ -50,6 +51,75 @@ def _uso_da_referencia(estrategia: Any, limite: Any, clonagem: bool = True) -> s
 
 def _abrir_cofre(config: Configuracao) -> cofre.Cofre:
     return cofre.abrir(config.dados / "estudio.db")
+
+
+# Modos de qualidade que a tela oferece. O nome viaja no historico para que a
+# restauracao devolva a mesma escolha, em vez de adivinhar. Os valores sao os
+# mesmos do seletor "Acabamento" da tela: natural, detalhado, broadcast.
+MODOS_DE_QUALIDADE = {"natural", "detalhado", "broadcast"}
+
+
+def _modo_do_pedido(modo: Any, ajustes_efetivos: dict[str, str], motor: str) -> str | None:
+    """Rotulo do modo usado na geracao.
+
+    A tela informa o modo escolhido; quando a chamada vem direto pela API, o
+    modo e deduzido do que foi realmente enviado a base. Sem ajuste nenhum,
+    devolve None e a tela diz "padrao do motor" em vez de supor.
+    """
+    if isinstance(modo, str) and modo.strip().lower() in MODOS_DE_QUALIDADE:
+        return modo.strip().lower()
+    if not ajustes_efetivos:
+        return None
+    if ajustes_efetivos.get("effect_preset") == "broadcast":
+        return "broadcast"
+    if motor.startswith("omnivoice") and ajustes_efetivos.get("num_step") == "64":
+        return "detalhado"
+    return "natural"
+
+
+def _item_historico(
+    config: Configuracao,
+    registro: dict[str, Any],
+    perfis: dict[str, str],
+) -> dict[str, Any]:
+    """Um item do historico no formato que a tela mostra (lista e detalhe)."""
+    configuracao: dict[str, Any] | None = None
+    bruto = registro.get("config_json")
+    if bruto:
+        try:
+            dado = json.loads(bruto)
+            configuracao = dado if isinstance(dado, dict) else None
+        except (TypeError, json.JSONDecodeError):
+            configuracao = None
+
+    audio_url: str | None = None
+    caminho = Path(str(registro.get("arquivo_saida") or ""))
+    if caminho.is_file():
+        try:
+            audio_url = f"/saidas/{caminho.relative_to(config.saidas).as_posix()}"
+        except ValueError:
+            audio_url = None
+
+    voz = (configuracao or {}).get("voz") or perfis.get(str(registro.get("perfil_id"))) or "voz do motor"
+    return {
+        "id": registro.get("id"),
+        "perfil_id": registro.get("perfil_id"),
+        "voz": voz,
+        "motor": registro.get("motor"),
+        "motor_nome": (configuracao or {}).get("motor_nome") or registro.get("motor"),
+        "texto_entrada": registro.get("texto_entrada"),
+        "duracao_audio_s": registro.get("duracao_audio_s"),
+        "duracao_geracao_s": registro.get("duracao_geracao_s"),
+        "tamanho_bytes": registro.get("tamanho_bytes"),
+        "dispositivo": registro.get("dispositivo"),
+        "status": registro.get("status"),
+        "erro": registro.get("erro"),
+        "criado_em": registro.get("criado_em"),
+        "quando": quando.relativo(registro.get("criado_em")),
+        "arquivo_saida": registro.get("arquivo_saida"),
+        "audio_url": audio_url,
+        "configuracao": configuracao,
+    }
 
 
 def _com_licenca(motor: dict[str, Any]) -> dict[str, Any]:
@@ -197,6 +267,7 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
             motor = str(corpo.get("motor") or banco.ler_config("motor_ativo", config.motor))
             perfil_id = corpo.get("perfil_id")
             perfil_base = None
+            perfil_nome = None
             if perfil_id:
                 perfil = banco.perfil(str(perfil_id))
                 if not perfil:
@@ -204,6 +275,7 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
                 if perfil["origem"] == "clonado" and not banco.tem_consentimento(str(perfil_id)):
                     raise HTTPException(409, "perfil sem consentimento registrado")
                 perfil_base = perfil["id_na_base"]
+                perfil_nome = perfil["nome"]
         finally:
             banco.fechar()
         encontrado = next((item for item in motores() if item["id"] == motor), None)
@@ -244,6 +316,26 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
         # afirmar e a rota que a base declara para este motor, e isso vai num
         # campo separado, com nome que nao promete mais do que e.
         resultado["dispositivo_base"] = encontrado.get("dispositivo")
+        # O resumo tem que descrever o que a base REALMENTE recebeu, nao so o que
+        # veio da tela. Como montar_corpo sempre injeta os padroes fieis, resumir
+        # apenas os ajustes pedidos dira "padrao do motor" enquanto a saida vai
+        # crua, e a tela passa a mentir sobre o proprio audio.
+        ajustes_efetivos = {} if motor == "chatterbox-ptbr" else {**base.PADROES_FIEIS, **ajustes_pedidos}
+        # Guardar a configuracao junto da geracao e o que permite o historico
+        # mostrar o que foi usado e restaurar depois, como o ElevenLabs faz.
+        configuracao_da_geracao = {
+            "motor": motor,
+            "motor_nome": str(encontrado.get("nome") or motor),
+            "voz": perfil_nome or "voz do motor",
+            "perfil_id": str(perfil_id) if perfil_id else None,
+            "velocidade": velocidade,
+            "idioma": str(corpo.get("idioma", "pt")),
+            "semente": corpo.get("semente"),
+            "modo": _modo_do_pedido(corpo.get("modo"), ajustes_efetivos, motor),
+            "preparo": bool(config.preparo),
+            "ajustes": ajustes_efetivos,
+            "resumo": ajustes_de_qualidade.resumo(ajustes_efetivos, velocidade),
+        }
         banco = _abrir_cofre(config)
         try:
             identificador = banco.registrar_geracao(
@@ -255,21 +347,18 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
                 dispositivo=str(resultado["dispositivo"]),
                 tamanho_bytes=int(resultado["tamanho_bytes"]),
                 perfil_id=str(perfil_id) if perfil_id else None,
+                configuracao=configuracao_da_geracao,
             )
         finally:
             banco.fechar()
         relativo = arquivo.relative_to(config.saidas).as_posix()
-        # O resumo tem que descrever o que a base REALMENTE recebeu, nao so o que
-        # veio da tela. Como montar_corpo sempre injeta os padroes fieis, resumir
-        # apenas os ajustes pedidos dira "padrao do motor" enquanto a saida vai
-        # crua, e a tela passa a mentir sobre o proprio audio.
-        ajustes_efetivos = {**base.PADROES_FIEIS, **ajustes_pedidos}
         return {
             **resultado,
             "geracao_id": identificador,
             "audio_url": f"/saidas/{relativo}",
             "ajustes": ajustes_efetivos,
             "resumo_ajustes": ajustes_de_qualidade.resumo(ajustes_efetivos, velocidade),
+            "configuracao": configuracao_da_geracao,
             # Sem isto, quem vende pode gerar com um motor de pesos nao comerciais
             # e so descobrir depois. O aviso viaja junto do audio.
             "aviso_licenca": licencas.aviso_comercial(motor),
@@ -285,6 +374,110 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
         if not registro:
             raise HTTPException(404, "geracao nao encontrada")
         return {**registro, "estado": "pronto" if registro["status"] == "ok" else "erro"}
+
+    @rotas.get("/historico")
+    def historico(
+        limite: int = Query(50, ge=1, le=500),
+        motor: str | None = None,
+        perfil_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Historico das geracoes, da mais nova para a mais antiga."""
+        banco = _abrir_cofre(config)
+        try:
+            registros = banco.listar_geracoes(limite=limite, motor=motor, perfil_id=perfil_id)
+            perfis = {str(item["id"]): str(item["nome"]) for item in banco.listar_perfis()}
+        finally:
+            banco.fechar()
+        itens = [_item_historico(config, registro, perfis) for registro in registros]
+        return {"itens": itens, "total": len(itens)}
+
+    @rotas.get("/historico/{geracao_id}")
+    def historico_um(geracao_id: str) -> dict[str, Any]:
+        banco = _abrir_cofre(config)
+        try:
+            registro = banco.geracao(geracao_id)
+            if not registro:
+                raise HTTPException(404, "geracao nao encontrada")
+            perfis = {str(item["id"]): str(item["nome"]) for item in banco.listar_perfis()}
+        finally:
+            banco.fechar()
+        return _item_historico(config, registro, perfis)
+
+    @rotas.get("/configuracoes")
+    def ler_configuracoes() -> dict[str, Any]:
+        """O que a aba Configuracoes mostra: padroes da geracao + limites reais."""
+        banco = _abrir_cofre(config)
+        try:
+            motor_ativo = str(banco.ler_config("motor_ativo", config.motor))
+            guardados = banco.ler_config("padroes_geracao", {}) or {}
+        finally:
+            banco.fechar()
+        if not isinstance(guardados, dict):
+            guardados = {}
+        encontrado = next((item for item in motores() if item["id"] == motor_ativo), None)
+        velocidade = float(guardados.get("velocidade", 1.0))
+        ajustes_guardados: dict[str, str] = {}
+        if guardados.get("ajustes"):
+            try:
+                ajustes_guardados = ajustes_de_qualidade.normalizar(guardados.get("ajustes"))
+            except (TypeError, ValueError):
+                ajustes_guardados = {}
+        ajustes_efetivos = {**base.PADROES_FIEIS, **ajustes_guardados}
+        return {
+            "motor": motor_ativo,
+            "motor_nome": str((encontrado or {}).get("nome") or motor_ativo),
+            "motor_disponivel": bool((encontrado or {}).get("disponivel")),
+            "velocidade": velocidade,
+            "idioma": str(guardados.get("idioma", "pt")),
+            "modo": guardados.get("modo"),
+            "semente": guardados.get("semente"),
+            "preparo": bool(config.preparo),
+            "ajustes": ajustes_efetivos,
+            "resumo": ajustes_de_qualidade.resumo(ajustes_efetivos, velocidade),
+        }
+
+    @rotas.post("/configuracoes")
+    def salvar_configuracoes(corpo: dict[str, Any]) -> dict[str, Any]:
+        """Grava os padroes de geracao. Nao troca o motor ativo (isso e /motores/ativo)."""
+        guardados: dict[str, Any] = {}
+        if "velocidade" in corpo and corpo["velocidade"] is not None:
+            try:
+                velocidade = float(corpo["velocidade"])
+            except (TypeError, ValueError) as erro:
+                raise HTTPException(422, "velocidade deve ser um numero") from erro
+            if not 0.5 <= velocidade <= 2.0:
+                raise HTTPException(422, "velocidade deve estar entre 0,5 e 2,0")
+            guardados["velocidade"] = velocidade
+        if "idioma" in corpo and corpo["idioma"] is not None:
+            idioma = str(corpo["idioma"]).strip()
+            if not idioma or len(idioma) > 10:
+                raise HTTPException(422, "idioma deve ser um codigo curto, por exemplo pt")
+            guardados["idioma"] = idioma
+        if "modo" in corpo and corpo["modo"] is not None:
+            modo = str(corpo["modo"]).strip().lower()
+            if modo not in MODOS_DE_QUALIDADE:
+                raise HTTPException(422, f"modo deve ser um destes: {', '.join(sorted(MODOS_DE_QUALIDADE))}")
+            guardados["modo"] = modo
+        if "semente" in corpo and corpo["semente"] is not None:
+            semente = corpo["semente"]
+            if type(semente) is not int or not 0 <= semente <= 2147483647:
+                raise HTTPException(422, "semente deve ser um inteiro de 0 a 2147483647")
+            guardados["semente"] = semente
+        if "ajustes" in corpo and corpo["ajustes"] is not None:
+            try:
+                guardados["ajustes"] = ajustes_de_qualidade.normalizar(corpo["ajustes"])
+            except (TypeError, ValueError) as erro:
+                raise HTTPException(422, str(erro)) from erro
+
+        if not guardados:
+            raise HTTPException(422, "nada para salvar: envie velocidade, modo, semente, idioma ou ajustes")
+        banco = _abrir_cofre(config)
+        try:
+            banco.gravar_config("padroes_geracao", guardados)
+            banco.registrar_evento("configurar", f"padroes de geracao: {', '.join(sorted(guardados))}")
+        finally:
+            banco.fechar()
+        return ler_configuracoes()
 
     @rotas.get("/saidas")
     def listar_saidas(

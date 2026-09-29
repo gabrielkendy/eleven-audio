@@ -123,10 +123,73 @@ O preparo está ligado por padrão (`ESTUDIO_PREPARO=0` desliga).
 | **Gerar** | Síntese simples: texto → áudio com o perfil selecionado | `POST /api/gerar`, `GET /api/gerar/{id}`, `GET /api/marcas` |
 | **Clonar** | Cria perfil de voz a partir do seu clipe (5–180 s, exige consentimento) | `POST /api/clonar`, `GET /api/perfis`, `GET /api/perfis/{id}/qualidade`, `DELETE /api/perfis/{id}` |
 | **Transcrever** | Áudio → texto (Whisper da base) | `POST /api/transcrever`, `GET /api/transcricoes` |
+| **Traduzir** | Texto entre 50 idiomas, e **_áudio → áudio_** na sua voz clonada | `POST /api/traduzir/texto`, `POST /api/traduzir/detectar`, `POST /api/dublar`, `GET /api/audio` |
 | **Desenhar voz** | Descrição textual → perfil (só com **VoxCPM2** ativo) | `POST /api/desenhar`, `GET /api/desenhos` |
 | **Comparar** | Mesmo texto/perfil em vários motores lado a lado | `POST /api/comparar`, `GET /api/comparar/{grupo}`, `GET /api/comparar/{grupo}/audio/{id}` |
 | **Agente** | Liga/desliga cliente no MCP da base (WhatsApp) | `GET /api/agente/status`, `POST /api/agente/ligar`, `POST /api/agente/desligar` |
 | **Configuração** | Motor ativo, saídas, estado, limites, licenças | `GET /api/estado`, `GET /api/motores`, `POST /api/motores/ativo`, `GET /api/saidas` |
+
+---
+
+## Tradução e dublagem (áudio → áudio)
+
+Tradutor **offline** (Argos, roda em CPU, sem chave de API), com **50 idiomas**.
+
+### O problema que a cascata resolve
+
+Medido em 29/09/2026: o Argos tem 100 pares, mas a distribuição é desigual —
+
+| saindo de | idiomas de destino disponíveis |
+|---|---|
+| `pt` | **2** (`en`, `es`) |
+| `en` | **47** |
+
+Ou seja: "traduzir para qualquer idioma" só funciona com um intermediário. Quando
+não existe par direto, o app passa pelo **inglês** e **avisa na tela** que houve
+dois saltos (a resposta traz `saltos: 2` e uma observação). Esconder isso seria
+esconder uma perda de qualidade de quem usa.
+
+### Português do Brasil é idioma separado
+
+O Argos tem `pt` (Portugal) e `pb` (Brasil) como códigos distintos. Traduzir para
+`pt` devolve *"como estás, a correr"*, que soa errado para brasileiro. O app
+normaliza: `pt-BR`, `pt_br`, `br` → `pb`. Testado:
+
+| pedido | resultado |
+|---|---|
+| en → pb | "Bom dia! Este é o estúdio de voz da minha secretária eletrônica." |
+| pt → en | "Good morning! This is the voice studio running on my machine." |
+| pt → ja | おはようございます! マシン上での音声スタジオです。 (via inglês) |
+
+### Como o áudio → áudio funciona
+
+```
+áudio em português
+   │
+   ├─ 1. TRANSCREVE (Whisper) ..... devolve o texto E o idioma detectado
+   ├─ 2. TRADUZ (Argos) ........... com cascata pelo inglês quando precisa
+   ├─ 3. DIVIDE em pedaços ........ por fim de frase, sem cortar palavra
+   └─ 4. FALA (motor + seu perfil)  na sua voz clonada
+                │
+                ▼
+        áudio em inglês, NA SUA VOZ
+```
+
+Texto longo é dividido (motores degradam ou recusam textos compridos) e os pedaços
+são juntados sem recodificar, exigindo o mesmo formato em todos: misturar taxas
+produziria áudio em velocidade errada.
+
+**Por que não usar o dublador da própria base (SoniTranslate):** ele tem ambiente
+próprio e servidor separado na porta 7860, e está **não instalado** nesta máquina.
+Fazendo aqui, o áudio sai na **sua voz clonada**, que é o ponto do projeto, e não
+numa voz genérica de dublador.
+
+### Dependência opcional: detecção de idioma
+
+O Argos não detecta idioma, e a base também não expõe detecção de texto. Se o
+**Ollama** estiver rodando em `127.0.0.1:11434`, o app usa o modelo local para
+detectar. Se não estiver, a tela simplesmente pede a escolha na mão — nunca chuta.
+Para o áudio → áudio isso nem é necessário: o Whisper já devolve o idioma.
 
 ---
 
