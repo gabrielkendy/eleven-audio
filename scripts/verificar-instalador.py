@@ -35,7 +35,19 @@ PS1 = ("instalar.ps1", "ABRIR.ps1", "FECHAR.ps1", "DIAGNOSTICO.ps1")
 BAT = ("INSTALAR.bat", "SO-CONFERIR.bat", "ABRIR.bat", "FECHAR.bat", "DIAGNOSTICO.bat")
 
 # caminho de quem montou o pacote nao pode ir junto para a comunidade
-PESSOAL = (r"Users\\Gabriel", r"YOUTUBE KENDY", r"\.venvs", r"SÉRIE")
+# Padroes que nao podem ir junto para a comunidade: caminho de usuario real,
+# ambiente virtual de outro programa. A deteccao e por FORMATO, nao por nome — se
+# fosse por nome, a propria lista de padroes entregaria o caminho de quem empacotou,
+# e este arquivo vai dentro do pacote.
+PESSOAL = (
+    # C:\Users\<nome>\ onde <nome> e uma pessoa, nao um marcador generico
+    re.compile(r"[A-Za-z]:\\+Users\\+(?!<)(?!%)(?!\$)[A-Za-z0-9._-]{3,}"),
+    re.compile(r"/home/(?!<)[a-z0-9._-]{3,}"),
+    re.compile(r"\.venvs[/\\]"),
+)
+
+# Marcadores genericos que PODEM aparecer (sao como se escreve um caminho de exemplo)
+GENERICOS_OK = ("<usuario>", "<user>", "%USERPROFILE%", "$env:USERPROFILE", "C:\\Users\\<")
 
 
 class _SemRedirect(HTTPRedirectHandler):
@@ -104,10 +116,18 @@ def main() -> int:
 
     sujos = []
     for arquivo in INSTALADOR.rglob("*"):
-        if arquivo.is_file() and arquivo.name != "local.ps1":
-            texto = arquivo.read_text(encoding="utf-8", errors="replace")
-            if any(re.search(p, texto) for p in PESSOAL):
-                sujos.append(arquivo.name)
+        if not arquivo.is_file() or arquivo.name == "local.ps1":
+            continue
+        texto = arquivo.read_text(encoding="utf-8", errors="replace")
+        achados = []
+        for padrao in PESSOAL:
+            for achado in padrao.findall(texto):
+                if isinstance(achado, tuple):
+                    achado = "".join(achado)
+                if not any(ok in str(achado) for ok in GENERICOS_OK):
+                    achados.append(str(achado)[:40])
+        if achados:
+            sujos.append(arquivo.name + " -> " + achados[0])
     conferir("nenhum caminho pessoal no pacote", not sujos, str(sujos))
     conferir("local.ps1 fora do pacote (nasce no destino)",
              not (INSTALADOR / "local.ps1").exists())
