@@ -12,7 +12,7 @@ Autor: Gabriel Kendy (Agência BASE)
 ## Instalar em 1 clique
 
 1. Baixe o pacote: **[eleven-audio.zip](../../releases/latest/download/eleven-audio.zip)**
-   (506 KB, link fixo: sempre a versão mais nova)
+   (~500 KB, link fixo: sempre a versão mais nova)
 2. Descompacte onde quiser
 3. Duplo clique em **`instalador/INSTALAR.bat`**
 
