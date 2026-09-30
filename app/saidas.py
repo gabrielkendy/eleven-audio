@@ -68,8 +68,28 @@ def tamanho_bytes(caminho: Path) -> int:
     return Path(caminho).stat().st_size
 
 
-def gravar_bytes(destino: Path, dados: bytes) -> Path:
+def destino_livre(destino: Path) -> Path:
+    """Devolve o caminho, acrescentando -2, -3... se ja existir.
+
+    O nome tem precisao de segundo (`carimbo`). Duas geracoes do mesmo motor
+    e do mesmo perfil dentro do mesmo segundo davam o MESMO arquivo: a segunda
+    apagava a primeira, calada. Como o nome e' so' AAAA-MM-DD_HHMMSS_motor_perfil,
+    apertar Ctrl+Enter duas vezes rapido ja bastava para perder o primeiro audio.
+    """
     destino = Path(destino)
+    if not destino.exists():
+        return destino
+    raiz, sufixo = destino.stem, destino.suffix
+    for numero in range(2, 1000):
+        candidato = destino.with_name(f"{raiz}-{numero}{sufixo}")
+        if not candidato.exists():
+            return candidato
+    raise RuntimeError(f"nao achei nome livre para {destino.name}")
+
+
+def gravar_bytes(destino: Path, dados: bytes) -> Path:
+    """Grava sem nunca apagar um audio anterior. Devolve o caminho REAL usado."""
+    destino = destino_livre(destino)
     destino.parent.mkdir(parents=True, exist_ok=True)
     destino.write_bytes(dados)
     return destino

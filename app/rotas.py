@@ -5,6 +5,7 @@ import shutil
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
@@ -431,6 +432,29 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
             "preparo": bool(config.preparo),
             "ajustes": ajustes_efetivos,
             "resumo": ajustes_de_qualidade.resumo(ajustes_efetivos, velocidade),
+        }
+
+    @rotas.get("/config")
+    def ler_config() -> dict[str, Any]:
+        """Onde o app mora: portas e pastas reais, lidas do ambiente.
+
+        A tela Configuracao chama `/api/config` desde o inicio e a rota nao
+        existia: o erro morria num `console.warn` e a tela mostrava 7800/3900
+        fixos no codigo. Se o dono mudar a porta por variavel de ambiente, a
+        tela mentiria. Agora a tela le daqui.
+        """
+        return {
+            "porta": config.porta,
+            "base_url": config.base_url,
+            # porta_base e pasta_saidas existem porque web/config.js le exatamente
+            # esses nomes. Sem eles a tela caia no chumbado (3900) e mentiria se a
+            # base rodasse em outra porta.
+            "porta_base": urlparse(config.base_url).port or 3900,
+            "pasta_saidas": str(config.saidas),
+            "saidas": str(config.saidas),
+            "dados": str(config.dados),
+            "motor": config.motor,
+            "timeout_s": config.timeout_s,
         }
 
     @rotas.post("/configuracoes")

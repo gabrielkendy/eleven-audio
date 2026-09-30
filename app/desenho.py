@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from app import bloqueios
+from app.base import listar_motores
 from app.cofre import abrir
 from app.config import Configuracao
 from app.saidas import gravar_bytes, medir, nome_arquivo, pasta_do_dia
@@ -70,7 +71,8 @@ def criar_voz(config: Configuracao, *, descricao: str, texto_previa: str, motor:
 
     try:
         with httpx.Client(base_url=config.base_url, timeout=config.timeout_s) as cliente:
-            motores = _exigir_sucesso(cliente.get("/engines/tts")).json().get("backends", [])
+            # base.listar_motores ja' cacheia /engines/tts (leva ~2,1 s na base).
+            motores = listar_motores(config).get("backends", [])
             info = next((item for item in motores if item.get("id") == motor), None)
             if not info:
                 raise ErroDesenho("O motor VoxCPM2 nao existe nesta instalacao da base.", 409)
@@ -112,7 +114,9 @@ def criar_voz(config: Configuracao, *, descricao: str, texto_previa: str, motor:
         raise ErroDesenho(f"Falha ao conversar com a base: {erro}") from erro
 
     destino = pasta_do_dia(config.saidas) / nome_arquivo(motor, id_na_base)
-    gravar_bytes(destino, audio.content)
+    # Este arquivo e' a referencia de voz de um perfil. Se ja' existisse um com o
+    # mesmo nome, gravar por cima faria o perfil antigo passar a soar como o novo.
+    destino = gravar_bytes(destino, audio.content)
     medidas = medir(destino)
     raiz = config.dados.parent.resolve()
     try:

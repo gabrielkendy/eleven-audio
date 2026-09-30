@@ -6,6 +6,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+import httpx
+
+# Importar a FUNCAO, nao o modulo: neste arquivo `base` ja' e' o nome da lista
+# de vinculos, e `base.listar_motores` viraria "'list' has no attribute".
+from app.base import listar_motores
 from app.cofre import abrir
 from app.config import Configuracao
 
@@ -68,11 +73,18 @@ class Agente:
             base = self._requisitar("GET", "/api/mcp/bindings")
         except ErroAgente as erro:
             base, motivo = [], str(erro)
+        # Nao usar self._requisitar aqui: /engines/tts leva ~2,1 s na base e este
+        # status e' lido toda vez que a aba Agente abre. base.listar_motores guarda
+        # o catalogo por 60 s, entao a aba abre instantanea e o preco e' pago uma vez.
         try:
-            motores = self._requisitar("GET", "/engines/tts")
-        except ErroAgente as erro:
+            motores = listar_motores(self.config)
+        # So' falha de rede. Um `except Exception` aqui ja' escondeu um bug de
+        # verdade: o AttributeError de `base.listar_motores` (nome sombreado)
+        # aparecia como 'Servidor MCP indisponivel' e mandou a investigacao para
+        # o lado errado. Se o erro for nosso, ele tem que aparecer como nosso.
+        except (httpx.HTTPError, OSError) as erro:
             motores = {"active": None, "backends": []}
-            motivo = motivo or str(erro)
+            motivo = motivo or f"Servidor MCP da base indisponivel: {erro}"
 
         return {
             "mcp": {"estado": "erro" if motivo else "ok", "motivo": motivo},

@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 
+from app.base import listar_motores
 from app.chatterbox_local import sintetizar_chatterbox
 from app.cofre import abrir
 from app.config import Configuracao
@@ -32,13 +33,22 @@ def _relativo(caminho: Path, config: Configuracao) -> str:
 MOTORES_LOCAIS = ("mock", "chatterbox-ptbr")
 
 
-def _motivos(client: httpx.Client, motores: list[str]) -> dict[str, dict[str, Any]]:
+def _motivos(
+    client: httpx.Client,
+    config: Configuracao,
+    motores: list[str],
+    transporte: httpx.BaseTransport | None = None,
+) -> dict[str, dict[str, Any]]:
     reais = [motor for motor in motores if motor not in MOTORES_LOCAIS]
     if not reais:
         return {}
-    resposta = client.get("/engines/tts")
-    resposta.raise_for_status()
-    catalogo = {item["id"]: item for item in resposta.json().get("backends", [])}
+    # Catalogo por base.listar_motores: e' o ponto unico de acesso a /engines/tts,
+    # que leva ~2,1 s na base. O transporte vai junto para o teste continuar
+    # conseguindo injetar a base falsa (sem ele, listar_motores usaria o cache).
+    catalogo = {
+        item["id"]: item
+        for item in listar_motores(config, transporte=transporte).get("backends", [])
+    }
     for motor in reais:
         item = catalogo.get(motor)
         if not item:
@@ -96,7 +106,9 @@ def _gerar_real(
         raise ComparacaoErro(str(detalhe)) from erro
     duracao_geracao = time.perf_counter() - inicio
     destino = pasta_do_dia(config.saidas) / nome_arquivo(motor, perfil_id)
-    gravar_bytes(destino, _audio_da_resposta(client, resposta))
+    # Ficar com o caminho que a gravacao devolveu: se o nome pedido ja' existia,
+    # gravar_bytes acrescenta sufixo e medir(destino) mediria o audio anterior.
+    destino = gravar_bytes(destino, _audio_da_resposta(client, resposta))
     return {
         **medir(destino),
         "caminho_absoluto": str(destino.resolve()),
@@ -136,7 +148,7 @@ def comparar(
             transport=transporte,
             follow_redirects=True,
         ) as client:
-            catalogo = _motivos(client, motores)
+            catalogo = _motivos(client, config, motores, transporte)
             arquivos = []
             for motor in motores:
                 if motor == "mock":

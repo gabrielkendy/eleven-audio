@@ -19,6 +19,9 @@ from app.rotas_agente import criar_router
 class _BaseHandler(BaseHTTPRequestHandler):
     vinculos: ClassVar[dict[str, dict[str, str | None]]] = {}
     ultimo_corpo: ClassVar[dict[str, str | None]] = {}
+    # Quantas vezes a base serviu o catalogo. /engines/tts leva ~2,1 s na base
+    # real e e' a rota mais cara do app; a aba Agente nao pode pedir uma por vez.
+    catalogo_servido: ClassVar[int] = 0
 
     def _json(self, status: int, corpo: object) -> None:
         dados = json.dumps(corpo).encode()
@@ -32,6 +35,7 @@ class _BaseHandler(BaseHTTPRequestHandler):
         if self.path == "/api/mcp/bindings":
             self._json(200, list(self.vinculos.values()))
         elif self.path == "/engines/tts":
+            type(self).catalogo_servido += 1
             self._json(
                 200,
                 {
@@ -68,6 +72,7 @@ class _BaseHandler(BaseHTTPRequestHandler):
 def _base() -> tuple[ThreadingHTTPServer, Thread]:
     _BaseHandler.vinculos = {}
     _BaseHandler.ultimo_corpo = {}
+    _BaseHandler.catalogo_servido = 0
     servidor = ThreadingHTTPServer(("127.0.0.1", 0), _BaseHandler)
     thread = Thread(target=servidor.serve_forever)
     thread.start()
@@ -240,3 +245,28 @@ def test_area_web_tem_comandos_toml_json_e_estados() -> None:
     assert '"mcpServers"' in codigo
     for estado in ("Carregando", "Nenhum vínculo ativo", "Erro"):
         assert estado in codigo
+
+
+def test_status_nao_repete_a_chamada_cara_na_base(tmp_path: Path) -> None:
+    """/engines/tts leva ~2,1 s na base e e lido toda vez que a aba abre.
+
+    Sem o cache, tres aberturas da aba custavam 6,3 s de espera para o usuario.
+    Este teste mede a CHAMADA, nao o tempo: relogio em teste fica instavel e
+    nao diz de quem e' a culpa da lentidao.
+    """
+    servidor, thread = _base()
+    try:
+        base_url = f"http://127.0.0.1:{servidor.server_port}"
+        servico, _ = _servico(tmp_path, base_url)
+
+        for _ in range(3):
+            assert servico.status()["mcp"]["estado"] == "ok"
+
+        assert _BaseHandler.catalogo_servido == 1, (
+            f"a base serviu /engines/tts {_BaseHandler.catalogo_servido} vezes para 3 "
+            "aberturas da aba: o cache do catalogo saiu do caminho e a aba voltou a "
+            "esperar ~2,1 s por abertura"
+        )
+    finally:
+        servidor.shutdown()
+        thread.join(timeout=5)

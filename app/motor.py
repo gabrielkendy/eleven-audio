@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import math
 import struct
 import time
@@ -43,7 +44,10 @@ def sintetizar(
             ajustes=ajustes,
         )
         base.validar_wav(audio)
-        saidas.gravar_bytes(arquivo, audio)
+        # Guardar o caminho que a gravacao DEVOLVEU, nao o que foi pedido: se
+        # ja' existia arquivo com esse nome, gravar_bytes acrescenta sufixo e o
+        # nome pedido apontaria para o audio da geracao anterior.
+        arquivo = saidas.gravar_bytes(arquivo, audio)
         medicao = saidas.medir(arquivo)
         return {
             "arquivo": str(arquivo),
@@ -58,7 +62,12 @@ def sintetizar(
     taxa = 24_000
     quantidade_quadros = int(taxa * max(0.6, min(30.0, len(texto) / 14.0)))
 
-    with wave.open(str(arquivo), "wb") as wav:
+    # Montar o WAV em MEMORIA e gravar por saidas.gravar_bytes: escrever direto
+    # com wave.open(str(arquivo), "wb") sobrescrevia a geracao anterior quando as
+    # duas caiam no mesmo segundo (o mock e' o motor do modo de teste, e gerar
+    # tres vezes seguidas e' o uso normal).
+    memoria = io.BytesIO()
+    with wave.open(memoria, "wb") as wav:
         wav.setnchannels(1)
         wav.setsampwidth(2)
         wav.setframerate(taxa)
@@ -67,6 +76,8 @@ def sintetizar(
             amostra = int(10_000 * math.sin(2 * math.pi * 440 * indice / taxa))
             quadros.extend(struct.pack("<h", amostra))
         wav.writeframes(quadros)
+
+    arquivo = saidas.gravar_bytes(arquivo, memoria.getvalue())
 
     return {
         "arquivo": str(arquivo),

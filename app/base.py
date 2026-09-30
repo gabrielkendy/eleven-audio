@@ -39,23 +39,54 @@ def saudavel(config: Configuracao) -> bool:
 # por alguns segundos e a primeira tela paga o custo sozinha.
 CATALOGO_VALIDADE_S = 60.0
 _catalogo: dict[str, object] = {}
+_catalogo_url: str = ""
 _catalogo_em: float = 0.0
 
 
-def listar_motores(config: Configuracao, *, forcar: bool = False) -> dict[str, object]:
-    """Catálogo de motores da base, com cache curto.
+def listar_motores(
+    config: Configuracao,
+    *,
+    forcar: bool = False,
+    transporte: httpx.BaseTransport | None = None,
+) -> dict[str, object]:
+    """Catálogo de motores da base. Ponto ÚNICO de acesso a /engines/tts.
 
-    `forcar=True` ignora o cache: use quando o motor ativo acabou de mudar e a tela
-    precisa do estado novo, não do que estava guardado.
+    Duas coisas importantes:
+
+    - `forcar=True` ignora o cache. Use quando o motor ativo acabou de mudar e a
+      tela precisa do estado novo, não do guardado.
+    - `transporte` é a costura de teste (`httpx.MockTransport`). Quando vem, o
+      cache NÃO é usado: o teste quer a resposta que ele preparou, não a de antes.
+
+    O cache é guardado com a URL da base. Sem isso, um teste que sobe um servidor
+    numa porta sorteada poderia ler o catálogo de outro teste, e a falha apareceria
+    longe da causa.
     """
-    global _catalogo, _catalogo_em
+    global _catalogo, _catalogo_url, _catalogo_em
+
+    if transporte is not None:
+        with httpx.Client(
+            base_url=config.base_url,
+            timeout=min(config.timeout_s, 30.0),
+            transport=transporte,
+        ) as cliente:
+            resposta = cliente.get("/engines/tts")
+            resposta.raise_for_status()
+            return resposta.json()
+
     agora = time.monotonic()
-    if not forcar and _catalogo and (agora - _catalogo_em) < CATALOGO_VALIDADE_S:
+    valido = (
+        _catalogo
+        and _catalogo_url == config.base_url
+        and (agora - _catalogo_em) < CATALOGO_VALIDADE_S
+    )
+    if not forcar and valido:
         return _catalogo
     with httpx.Client(timeout=min(config.timeout_s, 30.0)) as cliente:
         resposta = cliente.get(f"{config.base_url}/engines/tts")
         resposta.raise_for_status()
         _catalogo = resposta.json()
+        _catalogo_url = config.base_url
         _catalogo_em = agora
         return _catalogo
 
@@ -66,8 +97,9 @@ def esquecer_catalogo() -> None:
     Chamado quando o motor ativo muda: sem isso a tela mostraria o motor antigo
     por até um minuto, que é pior do que esperar.
     """
-    global _catalogo, _catalogo_em
+    global _catalogo, _catalogo_url, _catalogo_em
     _catalogo = {}
+    _catalogo_url = ""
     _catalogo_em = 0.0
 
 
