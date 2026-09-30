@@ -1,0 +1,27 @@
+# Declaracao do comando canonico de verificacao deste projeto.
+#
+# Por que este arquivo existe: nao havia pyproject.toml nem Makefile, entao nem
+# gente nem ferramenta achavam "como se verifica este projeto".
+#
+#     env -u PYTHONPATH <venv>/Scripts/python.exe -m pytest
+#     env -u PYTHONPATH <venv>/Scripts/python.exe -m ruff check app/ scripts/ tests/
+#
+# O `env -u PYTHONPATH` NAO e' capricho: o PYTHONPATH da maquina aponta para o venv
+# 3.11 e quebra o 3.14. Sem limpar, a suite nao sobe.
+#
+# O que este arquivo NAO faz, de proposito:
+#   - nao fixa `testpaths`: prender em tests/ tirava de rodada os 3 testes de
+#     experimentos/chatterbox-ptbr/test_runner.py. Declarar comando nao pode
+#     encolher o que ele cobre.
+#   - nao fixa `target-version` nem liga regra nova: isso destravou 4 avisos de
+#     estilo (UP017) no codigo do relogio. Linter aqui mede a realidade, nao
+#     impoe moda em cima de codigo sensivel.
+#   - nao tem [build-system]: o app roda do codigo, com requirements.txt.
+
+[tool.pytest.ini_options]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning:starlette.testclient"]
+
+[tool.ruff]
+line-length = 100
+exclude = ["experimentos", ".venv", "dados"]
