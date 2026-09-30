@@ -13,9 +13,9 @@ from app.cofre import abrir
 from app.config import Configuracao
 from app.saidas import medir_duracao
 
-AVISO_CONSENTIMENTO = """Antes de clonar, confirme: esta voz e sua, ou voce tem autorizacao de quem e dono.
-Clonar voz de terceiro sem autorizacao e ilegal e antiético.
-O audio que voce gerar e seu, mas cada motor tem licenca propria. Leia antes de uso comercial."""
+AVISO_CONSENTIMENTO = """Antes de clonar, confirme: esta voz é sua, ou você tem autorização de quem é dono.
+Clonar voz de terceiro sem autorização é ilegal e antiético.
+O áudio que você gerar é seu, mas cada motor tem licença própria. Leia antes de uso comercial."""
 
 # Limites da amostra de referencia, em segundos. Fonte unica: a tela le estes
 # numeros de /api/estado, entao backend e front nao podem divergir.

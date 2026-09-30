@@ -5,13 +5,13 @@ window.AREAS.push({
   titulo: "Configuração",
   async montar(raiz) {
     const LICENCAS = [
-      ["Estudio de Voz Local", "licenca a definir"],
+      ["Estúdio de Voz Local", "licença a definir"],
       ["VoiceStudio", "AGPL-3.0"],
-      ["OmniVoice", "licenca propria do projeto"],
-      ["VoxCPM2", "licenca propria do OpenBMB"],
-      ["IndexTTS 2.5", "licenca propria do projeto"],
-      ["Faster-Whisper", "licenca propria do projeto"],
-      ["WhisperX", "licenca propria do projeto"],
+      ["OmniVoice", "licença própria do projeto"],
+      ["VoxCPM2", "licença própria do OpenBMB"],
+      ["IndexTTS 2.5", "licença própria do projeto"],
+      ["Faster-Whisper", "licença própria do projeto"],
+      ["WhisperX", "licença própria do projeto"],
     ];
 
     async function ler(url) {
@@ -51,11 +51,11 @@ window.AREAS.push({
     const campos = [
       ["Porta do app", config?.porta || 7800],
       ["Porta da base", config?.porta_base || 3900],
-      ["Pasta de saidas", estado?.pasta_saidas || config?.saidas || config?.pasta_saidas || "saidas/audio"],
+      ["Pasta de saídas", estado?.pasta_saidas || config?.saidas || config?.pasta_saidas || "saidas/audio"],
       ["Pasta de dados", config?.dados || config?.pasta_dados || "dados"],
-      ["Espaco livre", saude?.disco_livre_gb == null ? "indisponivel" : `${saude.disco_livre_gb} GB`],
-      ["Estado da base", saude?.base || estado?.base || "indisponivel"],
-      ["Motor ativo", estado?.motor_ativo || config?.motor || saude?.motor_ativo || "indisponivel"],
+      ["Espaço livre", saude?.disco_livre_gb == null ? "indisponível" : `${saude.disco_livre_gb} GB`],
+      ["Estado da base", saude?.base || estado?.base || "indisponível"],
+      ["Motor ativo", estado?.motor_ativo || config?.motor || saude?.motor_ativo || "indisponível"],
     ];
     const grade = raiz.querySelector(".config-grade");
     for (const [nome, valor] of campos) {
