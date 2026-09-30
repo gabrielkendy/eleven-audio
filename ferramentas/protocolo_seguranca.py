@@ -58,8 +58,14 @@ class Achado:
     ocorrencias: list[str] = field(default_factory=list)
 
 
-def varrer_codigo(raiz: Path, extensoes=EXTENSOES_CODIGO):
-    """Percorre o projeto devolvendo (caminho_relativo, numero_da_linha, texto)."""
+def varrer_codigo(raiz: Path, extensoes=EXTENSOES_CODIGO, pular: set[str] | None = None):
+    """Percorre o projeto devolvendo (caminho_relativo, numero_da_linha, texto).
+
+    `pular` acrescenta pastas a ignorar nesta varredura apenas. Use quando a
+    invariante mede o app e nao faz sentido sobre o material que existe para
+    testa-lo: a suite aponta de proposito para host falso, e isso nao e uma
+    chamada externa do uso normal.
+    """
     proprio_scanner = Path(__file__).resolve()
     for caminho in sorted(raiz.rglob("*")):
         if not caminho.is_file():
@@ -67,6 +73,8 @@ def varrer_codigo(raiz: Path, extensoes=EXTENSOES_CODIGO):
         if caminho.resolve() == proprio_scanner:
             continue
         if any(parte in ARQUIVOS_IGNORADOS for parte in caminho.parts):
+            continue
+        if pular and any(parte in pular for parte in caminho.parts):
             continue
         if caminho.suffix.lower() not in extensoes:
             continue
@@ -139,10 +147,17 @@ def p2_loopback(raiz: Path) -> Achado:
 
 
 def p3_sem_chamada_externa(raiz: Path) -> Achado:
-    """Nenhuma chamada externa no uso normal. O texto nao sai da maquina."""
+    """Nenhuma chamada externa no uso normal. O texto nao sai da maquina.
+
+    A suite fica de fora: `tests/` aponta de proposito para host falso
+    (`base-falsa`) para exercitar o caminho de base fora do ar, e isso e o
+    oposto de uma chamada externa. Medir o app e nao quem o testa.
+    """
     host_local = r"(127\.0\.0\.1|localhost|::1)"
     occ = []
-    for rel, numero, linha in varrer_codigo(raiz, {".py", ".js", ".ts", ".tsx", ".jsx"}):
+    for rel, numero, linha in varrer_codigo(
+        raiz, {".py", ".js", ".ts", ".tsx", ".jsx"}, pular={"tests"}
+    ):
         # Desligar rastreamento e o oposto de rastrear: nao pode contar como falha.
         if re.search(r"(?i)disable[_-]?telemetry|telemetry[_-]?disabled|HF_HUB_OFFLINE", linha):
             continue
