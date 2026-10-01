@@ -224,7 +224,7 @@ h1 {
 }
 
 h2 { font-family: var(--display); font-weight: 600; letter-spacing: -0.01em; font-size: 22px; margin: 0 0 18px; }
-h3 { font-size: 15px; letter-spacing: 0.02em; margin: 26px 0 12px; color: var(--texto-fraco); text-transform: uppercase; font-size: 11.5px; letter-spacing: 0.2em; }
+h3 { margin: 26px 0 12px; color: var(--texto-fraco); text-transform: uppercase; font-size: 11.5px; letter-spacing: 0.2em; }
 
 .topo-status { display: flex; align-items: center; gap: 9px; color: var(--texto-fraco); font-size: 13px; white-space: nowrap; }
 .ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--sucesso); box-shadow: 0 0 12px currentColor; }

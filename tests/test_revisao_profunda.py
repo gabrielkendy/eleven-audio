@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import carregar_config
@@ -206,3 +207,46 @@ def test_historico_nao_aponta_para_arquivo_que_nao_existe(tmp_path: Path) -> Non
         assert Path(detalhe.json()["arquivo_saida"]).exists(), (
             "o historico mostra um item cujo audio nao existe mais no disco"
         )
+
+
+@pytest.mark.parametrize(
+    ("rota", "corpo", "campo"),
+    [
+        ("/api/gerar", {"texto": "Teste", "perfil": "vz-errado"}, "perfil"),
+        ("/api/motores/ativo", {"motor": "mock", "motro": "mock"}, "motro"),
+        ("/api/configuracoes", {"velocidade": 1.0, "velociddade": 2.0}, "velociddade"),
+        ("/api/traduzir/detectar", {"texto": "olá", "txeto": "erro"}, "txeto"),
+        (
+            "/api/comparar",
+            {"texto": "Teste", "perfil_id": "vz-x", "motores": ["a", "b"], "motor": "a"},
+            "motor",
+        ),
+        (
+            "/api/desenhar",
+            {"descricao": "grave", "texto_previa": "olá", "motor": "x", "descricaoo": "erro"},
+            "descricaoo",
+        ),
+        ("/api/agente/desligar", {"cliente_id": "x", "client_id": "erro"}, "client_id"),
+    ],
+)
+def test_json_recusa_campo_desconhecido_em_vez_de_ignorar(
+    tmp_path: Path,
+    rota: str,
+    corpo: dict[str, object],
+    campo: str,
+) -> None:
+    cliente = _cliente(tmp_path)
+
+    resposta = cliente.post(rota, json=corpo)
+
+    assert resposta.status_code == 422
+    assert campo in str(resposta.json()["detail"])
+
+
+def test_criar_app_isola_todas_as_fatias_na_configuracao_recebida(tmp_path: Path) -> None:
+    """Um app temporario nunca pode ler perfis/transcricoes reais do usuario."""
+    cliente = _cliente(tmp_path)
+
+    assert cliente.get("/api/transcricoes").json() == []
+    assert cliente.get("/api/perfis").json() == []
+    assert cliente.get("/api/desenhos").json() == []

@@ -78,8 +78,12 @@
         try {
           const estado = await api("/api/agente/status");
           const unidos = new Map();
-          estado.vinculos_base.forEach((v) => unidos.set(v.client_id, v));
-          estado.vinculos_locais.forEach((v) => unidos.set(v.cliente_id, { ...unidos.get(v.cliente_id), ...v }));
+          estado.vinculos_base.forEach((v) => {
+            unidos.set(v.client_id, v);
+          });
+          estado.vinculos_locais.forEach((v) => {
+            unidos.set(v.cliente_id, { ...unidos.get(v.cliente_id), ...v });
+          });
           lista.replaceChildren(...Array.from(unidos, ([id, vinculo]) => {
             const item = document.createElement("article");
             const titulo = document.createElement("strong");

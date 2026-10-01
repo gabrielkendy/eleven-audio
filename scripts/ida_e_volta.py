@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import time
@@ -43,7 +44,7 @@ import uuid
 import wave
 from pathlib import Path
 
-APP = "http://127.0.0.1:7800"
+APP = os.environ.get("ELEVEN_AUDIO_URL", "http://127.0.0.1:7800").rstrip("/")
 
 # Frase de controle. Mexer aqui exige mexer no esperado logo abaixo.
 #
@@ -227,6 +228,7 @@ def sobra_de_sinal(caminho: Path) -> tuple[bool, str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Ida e volta de gerar, transcrever e dublar.")
     parser.add_argument("--motor", default="omnivoice", help="motor de sintese (padrao: omnivoice)")
+    parser.add_argument("--perfil-id", default="", help="perfil local exigido por motores clonados")
     parser.add_argument("--guardar", action="store_true", help="nao apaga o WAV no fim")
     parser.add_argument("--limite", type=int, default=900, help="segundos por etapa")
     args = parser.parse_args()
@@ -255,7 +257,7 @@ def main() -> int:
         t0 = time.time()
         r = pedir(
             "/api/gerar",
-            json.dumps({"texto": FRASE, "motor": args.motor, "perfil_id": ""}).encode(),
+            json.dumps({"texto": FRASE, "motor": args.motor, "perfil_id": args.perfil_id}).encode(),
             "application/json",
             args.limite,
         )
@@ -279,7 +281,14 @@ def main() -> int:
         print("3) DUBLAR pt -> en")
         t0 = time.time()
         corpo, tipo = multpart(
-            {"destino": "en", "origem": "pt", "motor": args.motor, "tradutor": "auto"}, gerado
+            {
+                "destino": "en",
+                "origem": "pt",
+                "motor": args.motor,
+                "perfil_id": args.perfil_id,
+                "tradutor": "auto",
+            },
+            gerado,
         )
         r = pedir("/api/dublar", corpo, tipo, args.limite)
         print(f"   original:  {r.get('texto_original')!r}")

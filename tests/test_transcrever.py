@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+import io
 import json
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.cofre import abrir
 from app.config import carregar_config
 from app.rotas_transcrever import criar_router
+from app.transcricao import ErroTranscricao, guardar_arquivo
 
 
 class _BaseHandler(BaseHTTPRequestHandler):
@@ -120,3 +123,10 @@ def test_erro_de_formato_fica_em_portugues_e_preserva_motivo(tmp_path: Path) -> 
 
     assert resposta.status_code == 422
     assert resposta.json()["detail"] == "Erro ao transcrever: formato WAV corrompido"
+
+
+def test_upload_acima_do_limite_para_sem_deixar_arquivo_parcial(tmp_path: Path) -> None:
+    with pytest.raises(ErroTranscricao, match="passa do limite"):
+        guardar_arquivo(io.BytesIO(b"1234"), "grande.wav", tmp_path, limite_bytes=3)
+
+    assert list((tmp_path / "transcricoes").glob("*")) == []

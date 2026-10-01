@@ -183,16 +183,12 @@ def criar_perfil(
 
         cofre = abrir(config.dados / "estudio.db")
         try:
-            perfil_id = cofre.salvar_perfil(
+            perfil_id = cofre.salvar_perfil_com_consentimento(
                 nome=nome,
-                origem="clonado",
                 id_na_base=perfil_base_id,
                 arquivo_referencia=_caminho_registrado(config, destino),
                 transcricao_referencia=transcricao,
                 idioma="pt",
-            )
-            cofre.salvar_consentimento(
-                perfil_id=perfil_id,
                 texto_aceito=AVISO_CONSENTIMENTO,
                 origem_voz=origem_voz,
             )

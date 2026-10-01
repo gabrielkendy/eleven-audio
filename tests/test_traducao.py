@@ -771,8 +771,7 @@ def test_dublar_pede_auto_ao_transcritor_quando_nao_escolhem_origem(
     """Medido: o `language` da base é eco do enviado, então não serve de detecção.
 
     O que importa aqui é o pedido que sai para o transcritor: sem origem escolhida,
-    tem que ser "auto". A síntese no fim pode falhar ou não (depende da base), e
-    isso não interessa a este teste.
+    tem que ser "auto". O motor mock impede o teste de chamar a GPU/base real.
     """
     config = _config(tmp_path)
     idiomas_enviados: list[str] = []
@@ -798,17 +797,14 @@ def test_dublar_pede_auto_ao_transcritor_quando_nao_escolhem_origem(
             })
         raise AssertionError(f"rota inesperada: {requisicao.url}")
 
-    try:
-        dublar.dublar(
-            arquivo=io.BytesIO(_wav()),
-            nome_arquivo="teste.wav",
-            destino_idioma="pb",
-            config=config,
-            transporte=httpx.MockTransport(handler),
-        )
-    except dublar.ErroDublagem:
-        # a síntese pode não ser alcançada neste teste; não é o ponto
-        pass
+    dublar.dublar(
+        arquivo=io.BytesIO(_wav()),
+        nome_arquivo="teste.wav",
+        destino_idioma="pb",
+        config=config,
+        motor="mock",
+        transporte=httpx.MockTransport(handler),
+    )
 
     assert idiomas_enviados, "nem chamou o transcritor"
     assert idiomas_enviados[0] == "auto", idiomas_enviados

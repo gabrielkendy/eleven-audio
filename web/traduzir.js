@@ -48,8 +48,8 @@ window.AREAS.push({
         <label class="solte" data-solte-dub>
           <strong>Solte um áudio aqui</strong>
           <span>ou clique para escolher</span>
-          <small>MP3 WAV M4A FLAC OGG MP4 MOV — até 50 MB</small>
-          <input name="arquivo-dub" type="file" accept=".mp3,.wav,.m4a,.flac,.ogg,.mp4,.mov,audio/*,video/*">
+          <small>MP3 WAV M4A FLAC OGG MP4 MOV — até 150 MB</small>
+          <input name="arquivo-dub" type="file" accept=".mp3,.wav,.m4a,.flac,.ogg,.mp4,.mov,audio/*,video/*" aria-label="Arquivo de áudio ou vídeo para dublar">
           <span data-arquivo-dub>Nenhum arquivo escolhido</span>
         </label>
         <div class="linha-acao">
@@ -381,11 +381,16 @@ window.AREAS.push({
 
     raiz.querySelector("[data-usar-no-gerar]").addEventListener("click", () => {
       if (!traduzidoAtual) return;
-      try {
-        sessionStorage.setItem("texto-para-gerar", traduzidoAtual);
-      } catch (_) { /* sem sessionStorage, o botão só não transporta */ }
-      const aba = document.querySelector('[data-aba="gerar"], [data-area="gerar"]');
-      if (aba) aba.click();
+      const aba = document.querySelector('[data-alvo="gerar"]');
+      const textoGerar = document.querySelector('#gerar [data-campo="texto"]');
+      if (!aba || !textoGerar) {
+        estadoTexto.textContent = "Não foi possível abrir o Gerar.";
+        return;
+      }
+      aba.click();
+      textoGerar.value = traduzidoAtual;
+      textoGerar.dispatchEvent(new Event("input", { bubbles: true }));
+      textoGerar.focus();
       estadoTexto.textContent = "Texto enviado para a aba Gerar.";
     });
 
@@ -406,14 +411,18 @@ window.AREAS.push({
     raiz.querySelector("[data-idioma-destino-dub]").addEventListener("change", () => {
       preencherMotores();
     });
-    ["dragenter", "dragover"].forEach((ev) => solteDub.addEventListener(ev, (e) => {
-      e.preventDefault();
-      solteDub.dataset.arrastando = "sim";
-    }));
-    ["dragleave", "drop"].forEach((ev) => solteDub.addEventListener(ev, (e) => {
-      e.preventDefault();
-      delete solteDub.dataset.arrastando;
-    }));
+    ["dragenter", "dragover"].forEach((ev) => {
+      solteDub.addEventListener(ev, (e) => {
+        e.preventDefault();
+        solteDub.dataset.arrastando = "sim";
+      });
+    });
+    ["dragleave", "drop"].forEach((ev) => {
+      solteDub.addEventListener(ev, (e) => {
+        e.preventDefault();
+        delete solteDub.dataset.arrastando;
+      });
+    });
     solteDub.addEventListener("drop", (e) => escolherDub(e.dataTransfer.files[0]));
 
     raiz.querySelector("[data-dublar]").addEventListener("click", async (evento) => {

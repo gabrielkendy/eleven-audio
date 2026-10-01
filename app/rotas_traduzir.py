@@ -11,7 +11,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app import dub_base as base_dub
 from app import dublar as dublagem
@@ -21,6 +21,8 @@ from app.config import Configuracao, carregar_config
 
 
 class PedidoTexto(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     texto: str = Field(min_length=1, max_length=20000)
     origem: str = ""
     destino: str
@@ -29,10 +31,14 @@ class PedidoTexto(BaseModel):
 
 
 class PedidoDeteccao(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     texto: str = Field(min_length=1, max_length=20000)
 
 
 class PedidoPacotes(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     origem: str = Field(min_length=1)
     destinos: list[str] = Field(min_length=1, max_length=50)
 
@@ -117,15 +123,9 @@ def criar_router(config: Configuracao) -> APIRouter:
         except OSError as erro:
             raise HTTPException(status_code=400, detail="Caminho inválido.") from erro
 
-        dentro = False
-        for base in {raiz, config.dados.resolve(), (config.dados / "transcricoes").resolve()}:
-            try:
-                alvo.relative_to(base)
-                dentro = True
-                break
-            except ValueError:
-                continue
-        if not dentro:
+        try:
+            alvo.relative_to(raiz)
+        except ValueError:
             raise HTTPException(
                 status_code=403,
                 detail="Só é possível abrir áudios gerados pelo próprio estúdio.",
@@ -133,7 +133,19 @@ def criar_router(config: Configuracao) -> APIRouter:
         if not alvo.is_file():
             raise HTTPException(status_code=404, detail="Áudio não encontrado.")
 
-        tipo = "audio/wav" if alvo.suffix.lower() == ".wav" else "application/octet-stream"
+        tipos = {
+            ".wav": "audio/wav",
+            ".mp3": "audio/mpeg",
+            ".m4a": "audio/mp4",
+            ".ogg": "audio/ogg",
+            ".flac": "audio/flac",
+        }
+        tipo = tipos.get(alvo.suffix.lower())
+        if tipo is None:
+            raise HTTPException(
+                status_code=403,
+                detail="O arquivo solicitado não é um áudio permitido.",
+            )
         return FileResponse(alvo, media_type=tipo, filename=alvo.name)
 
     @rotas.post("/api/dublar")
@@ -196,7 +208,7 @@ def criar_router(config: Configuracao) -> APIRouter:
         banco = abrir(config.dados / "estudio.db")
         try:
             banco.registrar_transcricao(
-                arquivo_entrada=str(resultado["arquivo"]),
+                arquivo_entrada=Path(arquivo.filename).name,
                 motor=f"dublagem:{motor_escolhido}",
                 texto_saida=str(resultado["texto_traduzido"]),
                 idioma_detectado=str(resultado["origem"]),
@@ -255,9 +267,10 @@ def criar_router(config: Configuracao) -> APIRouter:
                 detail="Escolha a voz. Cole um áudio de referência na aba Clonar primeiro.",
             )
 
-        conteudo = arquivo.file.read()
-        if not conteudo:
-            raise HTTPException(status_code=400, detail="O arquivo chegou vazio.")
+        try:
+            conteudo = dublagem.ler_upload_limitado(arquivo.file)
+        except dublagem.ErroTranscricao as erro:
+            raise HTTPException(status_code=413, detail=str(erro)) from erro
         try:
             resultado = base_dub.dublar_pela_base(
                 conteudo=conteudo,
@@ -275,7 +288,7 @@ def criar_router(config: Configuracao) -> APIRouter:
         banco = abrir(config.dados / "estudio.db")
         try:
             banco.registrar_transcricao(
-                arquivo_entrada=str(resultado["arquivo"]),
+                arquivo_entrada=Path(arquivo.filename).name,
                 motor=f"dublagem-completa:{resultado.get('timing')}",
                 texto_saida=str(resultado["texto_traduzido"]),
                 idioma_detectado=str(resultado["origem"]),

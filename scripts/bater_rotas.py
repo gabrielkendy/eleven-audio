@@ -1,4 +1,4 @@
-"""Bate em TODA rota com payload de verdade e reporta o que quebrar.
+"""Bate nas rotas GET publicas sem parametro e reporta o que quebrar.
 
 Nao e' teste de unidade: e' a varredura que responde "alguma coisa aqui devolve 500
 ou falha calada?". Roda contra o app no ar (127.0.0.1:7800).
@@ -74,6 +74,8 @@ def main() -> int:
         elif codigo == 404:
             obs = "404"
             quebras.append(f"{metodo} {caminho}: 404")
+        elif caminho == "/" and texto.lstrip().startswith("<"):
+            obs = "HTML OK"
         elif texto.lstrip().startswith("<"):
             obs = "DEVOLVEU HTML"
             quebras.append(f"{metodo} {caminho}: devolveu HTML em vez de JSON")
@@ -87,7 +89,7 @@ def main() -> int:
         for item in quebras:
             print("  -", item)
         return 1
-    print("nenhuma quebra: todas as rotas GET respondem JSON, sem 5xx, sem 404.")
+    print("nenhuma quebra: rotas GET publicas responderam no formato esperado, sem 5xx ou 404.")
     return 0
 
 

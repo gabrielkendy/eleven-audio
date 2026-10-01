@@ -12,7 +12,7 @@ window.AREAS.push({
               <div class="solte" data-solte tabindex="0">
                 <strong>Solte um áudio aqui</strong>
                 <span data-limites-texto>ou escolha um arquivo de 5 s a 3 min</span>
-                <input name="arquivo_referencia" type="file" accept="audio/*">
+                <input name="arquivo_referencia" type="file" accept="audio/*" aria-label="Arquivo de áudio para clonar">
               </div>
               <div class="medidor-clipe" data-medidor>
                 <span data-duracao>Nenhum clipe selecionado.</span>
@@ -233,14 +233,18 @@ window.AREAS.push({
     });
 
     const solte = raiz.querySelector("[data-solte]");
-    ["dragenter", "dragover"].forEach((tipo) => solte.addEventListener(tipo, (evento) => {
-      evento.preventDefault();
-      solte.classList.add("arrastando");
-    }));
-    ["dragleave", "drop"].forEach((tipo) => solte.addEventListener(tipo, (evento) => {
-      evento.preventDefault();
-      solte.classList.remove("arrastando");
-    }));
+    ["dragenter", "dragover"].forEach((tipo) => {
+      solte.addEventListener(tipo, (evento) => {
+        evento.preventDefault();
+        solte.classList.add("arrastando");
+      });
+    });
+    ["dragleave", "drop"].forEach((tipo) => {
+      solte.addEventListener(tipo, (evento) => {
+        evento.preventDefault();
+        solte.classList.remove("arrastando");
+      });
+    });
     solte.addEventListener("drop", (evento) => {
       const recebido = evento.dataTransfer.files[0];
       if (!recebido?.type.startsWith("audio/")) return mensagem("Solte um arquivo de áudio.", true);
@@ -264,7 +268,9 @@ window.AREAS.push({
         gravador.addEventListener("dataavailable", ({ data }) => data.size && partes.push(data));
         gravador.addEventListener("stop", () => {
           clearInterval(cronometro);
-          fluxo.getTracks().forEach((trilha) => trilha.stop());
+          fluxo.getTracks().forEach((trilha) => {
+            trilha.stop();
+          });
           botao.textContent = "Gravar agora";
           botao._gravador = null;
           usarClipe(new Blob(partes, { type: gravador.mimeType }), "gravacao.webm");

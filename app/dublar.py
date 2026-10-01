@@ -108,32 +108,30 @@ def juntar_wavs(caminhos: list[Path], destino: Path) -> Path:
     if not caminhos:
         raise ErroDublagem("nada para juntar")
     if len(caminhos) == 1:
-        destino.parent.mkdir(parents=True, exist_ok=True)
-        destino.write_bytes(caminhos[0].read_bytes())
-        return destino
+        return saidas.gravar_bytes(destino, caminhos[0].read_bytes())
 
     with wave.open(str(caminhos[0]), "rb") as primeiro:
         formato = (primeiro.getnchannels(), primeiro.getsampwidth(), primeiro.getframerate())
 
-    quadros: list[bytes] = []
-    for caminho in caminhos:
-        with wave.open(str(caminho), "rb") as leitor:
-            atual = (leitor.getnchannels(), leitor.getsampwidth(), leitor.getframerate())
-            if atual != formato:
-                raise ErroDublagem(
-                    f"formatos diferentes: {caminhos[0].name} é {formato}, "
-                    f"{caminho.name} é {atual}"
-                )
-            quadros.append(leitor.readframes(leitor.getnframes()))
-
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    with wave.open(str(destino), "wb") as saida:
-        saida.setnchannels(formato[0])
-        saida.setsampwidth(formato[1])
-        saida.setframerate(formato[2])
-        for bloco in quadros:
-            saida.writeframes(bloco)
-    return destino
+    reservado, arquivo = saidas.abrir_destino_exclusivo(destino)
+    try:
+        with arquivo, wave.open(arquivo, "wb") as saida:
+            saida.setnchannels(formato[0])
+            saida.setsampwidth(formato[1])
+            saida.setframerate(formato[2])
+            for caminho in caminhos:
+                with wave.open(str(caminho), "rb") as leitor:
+                    atual = (leitor.getnchannels(), leitor.getsampwidth(), leitor.getframerate())
+                    if atual != formato:
+                        raise ErroDublagem(
+                            f"formatos diferentes: {caminhos[0].name} é {formato}, "
+                            f"{caminho.name} é {atual}"
+                        )
+                    saida.writeframes(leitor.readframes(leitor.getnframes()))
+    except Exception:
+        reservado.unlink(missing_ok=True)
+        raise
+    return reservado
 
 
 def _limpar_pedacos(caminhos: list[Path]) -> None:
@@ -188,11 +186,15 @@ def dublar(
     # enviado (mandando "pt" num áudio em inglês, ela respondia "pt"), então ele
     # não serve como detecção. O texto transcrito vem certo nos três casos.
     fonte_pedida = traducao.normalizar(origem_idioma)
+    caminho_entrada: Path | None = None
     try:
         caminho_entrada = guardar_arquivo(arquivo, nome_arquivo, config.dados)
         escuta = transcrever(caminho_entrada, fonte_pedida or "auto", config, transporte)
     except ErroTranscricao as erro:
         raise ErroDublagem(f"não deu para entender o áudio de entrada: {erro}") from erro
+    finally:
+        if caminho_entrada is not None:
+            caminho_entrada.unlink(missing_ok=True)
 
     texto_original = str(escuta.get("texto") or "").strip()
     if not texto_original:
@@ -259,7 +261,7 @@ def dublar(
         ".wav", f"-{alvo}.wav"
     )
     try:
-        juntar_wavs(gerados, final)
+        final = juntar_wavs(gerados, final)
     except ErroDublagem:
         _limpar_pedacos(gerados)
         raise

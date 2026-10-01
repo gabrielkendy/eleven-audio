@@ -99,12 +99,16 @@ function montarAreas() {
     .map((area, indice) => `<section id="${area.id}" class="painel" ${indice === 0 ? "" : "hidden"}>${area.html ? area.html() : ""}</section>`)
     .join("");
 
-  areas.forEach((area) => area.montar?.(document.querySelector(`#${area.id}`)));
+  areas.forEach((area) => {
+    area.montar?.(document.querySelector(`#${area.id}`));
+  });
   montarSeletorTema();
 
   const mostrar = (id) => {
     const area = areas.find((item) => item.id === id);
-    navegacao.querySelectorAll("button").forEach((item) => item.classList.toggle("ativo", item.dataset.alvo === id));
+    navegacao.querySelectorAll("button").forEach((item) => {
+      item.classList.toggle("ativo", item.dataset.alvo === id);
+    });
     // Só os paineis de primeiro nivel entram no liga/desliga. As secoes internas de cada
     // area (colunas, blocos, comparacao) tem o proprio hidden e nao podem ser mexidas aqui.
     destino.querySelectorAll(":scope > section").forEach((painel) => {
@@ -116,6 +120,10 @@ function montarAreas() {
     if (matchMedia("(max-width: 900px)").matches) {
       document.body.classList.remove("menu-aberto");
       sanfona?.setAttribute("aria-expanded", "false");
+      if (titulo) {
+        titulo.tabIndex = -1;
+        requestAnimationFrame(() => titulo.focus({ preventScroll: true }));
+      }
     }
   };
 

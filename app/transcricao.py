@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 import uuid
 from pathlib import Path
 from typing import Any, BinaryIO
@@ -12,18 +11,57 @@ import httpx
 from app.config import Configuracao
 from app.traducao import para_motor
 
+LIMITE_UPLOAD_BYTES = 150 * 1024 * 1024
+TAMANHO_BLOCO = 1024 * 1024
+
 
 class ErroTranscricao(Exception):
     pass
 
 
-def guardar_arquivo(arquivo: BinaryIO, nome: str, pasta_dados: Path) -> Path:
+def ler_upload_limitado(
+    arquivo: BinaryIO,
+    limite_bytes: int = LIMITE_UPLOAD_BYTES,
+) -> bytes:
+    """Lê upload em blocos e interrompe antes de aceitar conteúdo sem limite."""
+    arquivo.seek(0)
+    partes: list[bytes] = []
+    total = 0
+    while bloco := arquivo.read(TAMANHO_BLOCO):
+        total += len(bloco)
+        if total > limite_bytes:
+            raise ErroTranscricao(
+                f"o arquivo passa do limite de {limite_bytes // (1024 * 1024)} MB"
+            )
+        partes.append(bloco)
+    if not partes:
+        raise ErroTranscricao("o arquivo está vazio")
+    return b"".join(partes)
+
+
+def guardar_arquivo(
+    arquivo: BinaryIO,
+    nome: str,
+    pasta_dados: Path,
+    limite_bytes: int = LIMITE_UPLOAD_BYTES,
+) -> Path:
     nome_seguro = re.sub(r'[^\w. -]', "_", Path(nome).name, flags=re.UNICODE).strip(". ") or "arquivo"
     destino = pasta_dados / "transcricoes" / f"{uuid.uuid4().hex[:12]}_{nome_seguro}"
     destino.parent.mkdir(parents=True, exist_ok=True)
     arquivo.seek(0)
-    with destino.open("wb") as saida:
-        shutil.copyfileobj(arquivo, saida)
+    total = 0
+    try:
+        with destino.open("wb") as saida:
+            while bloco := arquivo.read(TAMANHO_BLOCO):
+                total += len(bloco)
+                if total > limite_bytes:
+                    raise ErroTranscricao(
+                        f"o arquivo passa do limite de {limite_bytes // (1024 * 1024)} MB"
+                    )
+                saida.write(bloco)
+    except (OSError, ErroTranscricao):
+        destino.unlink(missing_ok=True)
+        raise
     if destino.stat().st_size == 0:
         destino.unlink()
         raise ErroTranscricao("o arquivo está vazio")

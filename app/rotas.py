@@ -51,6 +51,19 @@ def _abrir_cofre(config: Configuracao) -> cofre.Cofre:
     return cofre.abrir(config.dados / "estudio.db")
 
 
+def _recusar_campos_desconhecidos(corpo: dict[str, Any], permitidos: set[str]) -> None:
+    """Nao deixa erro de digitacao virar uma operacao valida com outro significado.
+
+    O caso real foi `perfil` no lugar de `perfil_id`: a API respondeu 200 e gerou
+    com a voz padrao. Isso e pior do que falhar, porque o audio sai convincente e
+    a pessoa acredita que testou a clonagem escolhida.
+    """
+    desconhecidos = sorted(set(corpo) - permitidos)
+    if desconhecidos:
+        nomes = ", ".join(desconhecidos)
+        raise HTTPException(422, f"campo(s) desconhecido(s): {nomes}")
+
+
 # Modos de qualidade que a tela oferece. O nome viaja no historico para que a
 # restauracao devolva a mesma escolha, em vez de adivinhar. Os valores sao os
 # mesmos do seletor "Acabamento" da tela: natural, detalhado, broadcast.
@@ -227,6 +240,7 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
 
     @rotas.post("/motores/ativo")
     def motor_ativo(corpo: dict[str, Any]) -> dict[str, str]:
+        _recusar_campos_desconhecidos(corpo, {"motor"})
         motor = str(corpo.get("motor", ""))
         encontrado = next((item for item in motores() if item["id"] == motor), None)
         if not encontrado:
@@ -247,7 +261,11 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
 
     @rotas.post("/gerar")
     def gerar(corpo: dict[str, Any]) -> dict[str, Any]:
-        texto = str(corpo.get("texto", ""))
+        _recusar_campos_desconhecidos(
+            corpo,
+            {"texto", "motor", "perfil_id", "velocidade", "idioma", "semente", "modo", "ajustes"},
+        )
+        texto = str(corpo.get("texto", "")).strip()
         if not 1 <= len(texto.strip()) <= 5000:
             raise HTTPException(422, "texto deve ter entre 1 e 5000 caracteres")
         try:
@@ -460,6 +478,10 @@ def criar_rotas(config: Configuracao, verificar_base: Callable[[], bool]) -> API
     @rotas.post("/configuracoes")
     def salvar_configuracoes(corpo: dict[str, Any]) -> dict[str, Any]:
         """Grava os padroes de geracao. Nao troca o motor ativo (isso e /motores/ativo)."""
+        _recusar_campos_desconhecidos(
+            corpo,
+            {"velocidade", "idioma", "modo", "semente", "ajustes"},
+        )
         guardados: dict[str, Any] = {}
         if "velocidade" in corpo and corpo["velocidade"] is not None:
             try:

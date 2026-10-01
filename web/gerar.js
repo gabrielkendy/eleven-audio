@@ -1,3 +1,16 @@
+function urlAudioLocalSegura(valor) {
+  if (!valor) return null;
+  try {
+    const url = new URL(valor, window.location.origin);
+    if (url.origin !== window.location.origin || !["http:", "https:"].includes(url.protocol)) {
+      return null;
+    }
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch (_) {
+    return null;
+  }
+}
+
 window.AREAS.gerar = {
   titulo: "Gerar",
   ordem: 1,
@@ -5,7 +18,7 @@ window.AREAS.gerar = {
     return `
       <div class="rail">
         <div class="compositor">
-          <div class="abas" role="tablist" aria-label="Áreas do estúdio">
+          <div class="abas" role="group" aria-label="Áreas do estúdio">
             <button class="aba ativa" type="button" data-nav="gerar">Compor</button>
             <button class="aba" type="button" data-acao="config">Configurações</button>
             <button class="aba" type="button" data-acao="historico">Histórico</button>
@@ -256,7 +269,7 @@ window.AREAS.gerar = {
         tocar.disabled = perfil.origem !== "clonado" || !perfil.audio_url;
         if (tocar.disabled) tocar.title = "Prévia original ainda não disponível neste servidor.";
         tocar.addEventListener("click", async () => {
-          const previa = perfil.audio_url;
+          const previa = urlAudioLocalSegura(perfil.audio_url);
           if (!previa) return mostrarAviso("Esta voz ainda não tem prévia nesta sessão.");
           audio.pause();
           previaOriginal.src = previa;
@@ -389,8 +402,16 @@ window.AREAS.gerar = {
     }
 
     async function carregarHistorico() {
-      const resposta = await api("/historico?limite=50");
-      historicoItens = resposta.itens || [];
+      try {
+        const resposta = await api("/historico?limite=50");
+        historicoItens = resposta.itens || [];
+      } catch (erro) {
+        historicoItens = [];
+        renderizarHistorico();
+        const vazio = area.querySelector("[data-historico-vazio]");
+        vazio.textContent = `Histórico indisponível: ${erro.message}`;
+        return;
+      }
       renderizarHistorico();
     }
 
@@ -424,8 +445,9 @@ window.AREAS.gerar = {
       tocar.type = "button";
       tocar.className = "primario";
       tocar.textContent = "▶ Reproduzir";
-      tocar.disabled = !item.audio_url;
-      if (!item.audio_url) tocar.title = "O arquivo desta geração não está mais na pasta de saídas.";
+      const audioHistorico = urlAudioLocalSegura(item.audio_url);
+      tocar.disabled = !audioHistorico;
+      if (!audioHistorico) tocar.title = "O arquivo desta geração não está mais na pasta de saídas.";
       tocar.addEventListener("click", () => {
         mostrarPlayer(item);
         audio.play().catch(() => mostrarAviso("Clique em reproduzir para ouvir."));
@@ -434,7 +456,7 @@ window.AREAS.gerar = {
       baixar.className = "secundario";
       baixar.textContent = "Baixar WAV";
       baixar.download = "";
-      if (item.audio_url) baixar.href = item.audio_url;
+      if (audioHistorico) baixar.href = audioHistorico;
       else {
         baixar.setAttribute("aria-disabled", "true");
         baixar.classList.add("desabilitado");
@@ -561,7 +583,11 @@ window.AREAS.gerar = {
 
     function mostrarPlayer(resultado) {
       previaOriginal.pause();
-      const url = resultado.audio_url || resultado.arquivo;
+      const url = urlAudioLocalSegura(resultado.audio_url);
+      if (!url) {
+        mostrarAviso("O endereço deste áudio é inválido ou não pertence ao estúdio.");
+        return;
+      }
       audio.src = url;
       campo("baixar").href = url;
       campo("tempo-player").textContent = `${Number(resultado.duracao_audio_s).toFixed(2)} s`;
@@ -661,9 +687,11 @@ window.AREAS.gerar = {
       }
     }
 
-    area.querySelectorAll("[data-nav]").forEach((aba) => aba.addEventListener("click", () => {
-      document.querySelector(`#navegacao [data-alvo="${aba.dataset.nav}"]`)?.click();
-    }));
+    area.querySelectorAll("[data-nav]").forEach((aba) => {
+      aba.addEventListener("click", () => {
+        document.querySelector(`#navegacao [data-alvo="${aba.dataset.nav}"]`)?.click();
+      });
+    });
     area.querySelector("[data-acao='historico']").addEventListener("click", () => irPara("historico"));
     area.querySelector("[data-acao='config']").addEventListener("click", () => irPara("config"));
     area.querySelector("[data-nav='gerar']").addEventListener("click", () => irPara("compor"));
@@ -671,13 +699,15 @@ window.AREAS.gerar = {
       historicoBusca = campo("busca-historico").value;
       renderizarHistorico();
     });
-    area.querySelectorAll(".chip-filtro").forEach((chip) => chip.addEventListener("click", () => {
-      const nome = chip.dataset.filtro;
-      historicoFiltros[nome] = !historicoFiltros[nome];
-      chip.setAttribute("aria-pressed", String(historicoFiltros[nome]));
-      chip.classList.toggle("ativo", historicoFiltros[nome]);
-      renderizarHistorico();
-    }));
+    area.querySelectorAll(".chip-filtro").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const nome = chip.dataset.filtro;
+        historicoFiltros[nome] = !historicoFiltros[nome];
+        chip.classList.toggle("ativo", historicoFiltros[nome]);
+        chip.setAttribute("aria-pressed", String(historicoFiltros[nome]));
+        renderizarHistorico();
+      });
+    });
     campo("config-velocidade").addEventListener("input", () => {
       campo("config-velocidade-valor").textContent = `${Number(campo("config-velocidade").value).toLocaleString("pt-BR", { minimumFractionDigits: 1 })}x`;
     });
@@ -705,11 +735,13 @@ window.AREAS.gerar = {
         status.textContent = erro.message;
       }
     });
-    area.querySelectorAll(".pílula").forEach((botao) => botao.addEventListener("click", () => {
-      campo("texto").value = botao.dataset.texto;
-      atualizarContador();
-      campo("texto").focus();
-    }));
+    area.querySelectorAll(".pílula").forEach((botao) => {
+      botao.addEventListener("click", () => {
+        campo("texto").value = botao.dataset.texto;
+        atualizarContador();
+        campo("texto").focus();
+      });
+    });
     campo("texto").addEventListener("input", atualizarContador);
     campo("texto").addEventListener("keydown", (evento) => {
       if ((evento.ctrlKey || evento.metaKey) && evento.key === "Enter") {

@@ -5,13 +5,15 @@ from pathlib import Path
 import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.comparar import ComparacaoErro, buscar, comparar
 from app.config import Configuracao, carregar_config
 
 
 class PedidoComparacao(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     texto: str = Field(min_length=1, max_length=5_000)
     perfil_id: str = Field(min_length=1)
     motores: list[str] = Field(min_length=2, max_length=2)

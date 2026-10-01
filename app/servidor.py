@@ -18,17 +18,9 @@ from app import (
     rotas_traduzir,
     rotas_transcrever,
 )
+from app.agente import Agente
 from app.config import Configuracao, carregar_config
 from app.rotas import criar_rotas
-
-ROTAS_DAS_FATIAS = (
-    rotas_clonar,
-    rotas_comparar,
-    rotas_desenhar,
-    rotas_transcrever,
-    rotas_agente,
-    rotas_traduzir,
-)
 
 
 def criar_app(
@@ -43,8 +35,18 @@ def criar_app(
     consulta_base = verificar_base or (lambda: base.saudavel(config))
     aplicacao = FastAPI(title="Estudio de Voz Local")
     aplicacao.include_router(criar_rotas(config, consulta_base))
-    for modulo in ROTAS_DAS_FATIAS:
-        aplicacao.include_router(modulo.router)
+
+    # Cada app precisa usar a configuracao que recebeu. Os routers globais destas
+    # fatias capturavam `carregar_config()` durante o import: criar um app de teste
+    # com pasta temporaria ainda lia e gravava o banco REAL do usuario. Alem de
+    # invalidar a suite, isso deixava `criar_app(config)` mentir sobre seu contrato.
+    aplicacao.state.configuracao_clonar = config
+    aplicacao.include_router(rotas_clonar.router)
+    aplicacao.include_router(rotas_comparar.criar_router(config))
+    aplicacao.include_router(rotas_desenhar.criar_router(config))
+    aplicacao.include_router(rotas_transcrever.criar_router(config))
+    aplicacao.include_router(rotas_agente.criar_router(Agente(config)))
+    aplicacao.include_router(rotas_traduzir.criar_router(config))
     aplicacao.mount("/saidas", StaticFiles(directory=config.saidas), name="saidas")
     web = Path(__file__).resolve().parents[1] / "web"
 

@@ -9,8 +9,8 @@ window.AREAS.push({
         <label class="solte" data-solte>
           <strong>Solte um áudio ou vídeo aqui</strong>
           <span>ou clique para escolher</span>
-          <small>MP3 WAV M4A FLAC MP4 MOV MKV WEBM</small>
-          <input name="arquivo" type="file" accept=".mp3,.wav,.m4a,.flac,.mp4,.mov,.mkv,.webm,audio/*,video/*" required>
+          <small>MP3 WAV M4A FLAC MP4 MOV MKV WEBM — até 150 MB</small>
+          <input name="arquivo" type="file" accept=".mp3,.wav,.m4a,.flac,.mp4,.mov,.mkv,.webm,audio/*,video/*" aria-label="Arquivo de áudio ou vídeo para transcrever" required>
           <span data-arquivo>Nenhum arquivo escolhido</span>
         </label>
         <div class="linha-acao">
@@ -83,14 +83,18 @@ window.AREAS.push({
     }
 
     entrada.addEventListener("change", () => escolher(entrada.files[0]));
-    ["dragenter", "dragover"].forEach((evento) => solte.addEventListener(evento, (e) => {
-      e.preventDefault();
-      solte.dataset.arrastando = "sim";
-    }));
-    ["dragleave", "drop"].forEach((evento) => solte.addEventListener(evento, (e) => {
-      e.preventDefault();
-      delete solte.dataset.arrastando;
-    }));
+    ["dragenter", "dragover"].forEach((evento) => {
+      solte.addEventListener(evento, (e) => {
+        e.preventDefault();
+        solte.dataset.arrastando = "sim";
+      });
+    });
+    ["dragleave", "drop"].forEach((evento) => {
+      solte.addEventListener(evento, (e) => {
+        e.preventDefault();
+        delete solte.dataset.arrastando;
+      });
+    });
     solte.addEventListener("drop", (evento) => escolher(evento.dataTransfer.files[0]));
 
     form.addEventListener("submit", async (evento) => {

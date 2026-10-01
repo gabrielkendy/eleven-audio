@@ -251,6 +251,62 @@ class Cofre:
     def tem_consentimento(self, perfil_id: str) -> bool:
         return self.consentimento(perfil_id) is not None
 
+    def salvar_perfil_com_consentimento(
+        self,
+        *,
+        nome: str,
+        id_na_base: str,
+        arquivo_referencia: str,
+        transcricao_referencia: str,
+        idioma: str,
+        texto_aceito: str,
+        origem_voz: str,
+    ) -> str:
+        """Cria perfil clonado e consentimento numa única transação SQLite."""
+        if origem_voz not in {"propria", "autorizada"}:
+            raise ValueError("origem_voz deve ser propria ou autorizada")
+        perfil_id = novo_id("vz-")
+        consentimento_id = novo_id("cs-")
+        criado_em = agora()
+        with self._conexao:
+            self._conexao.execute(
+                """
+                INSERT INTO perfil_voz (
+                    id, nome, origem, id_na_base, arquivo_referencia,
+                    transcricao_referencia, descricao_desenho, idioma,
+                    criado_em, observacao
+                ) VALUES (?, ?, 'clonado', ?, ?, ?, NULL, ?, ?, NULL)
+                """,
+                (
+                    perfil_id,
+                    nome,
+                    id_na_base,
+                    arquivo_referencia,
+                    transcricao_referencia,
+                    idioma,
+                    criado_em,
+                ),
+            )
+            self._conexao.execute(
+                """
+                INSERT INTO consentimento (
+                    id, perfil_id, texto_aceito, aceito_em, origem_voz
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    consentimento_id,
+                    perfil_id,
+                    texto_aceito,
+                    criado_em,
+                    origem_voz,
+                ),
+            )
+            self._conexao.execute(
+                "INSERT INTO evento (id, tipo, detalhe, criado_em) VALUES (?, ?, ?, ?)",
+                (novo_id("ev-"), "clonar", f"perfil {perfil_id} ({nome})", criado_em),
+            )
+        return perfil_id
+
     # --------------------------------------------------------------- geracao
     def registrar_geracao(
         self,

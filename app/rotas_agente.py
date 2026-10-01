@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.agente import Agente, ErroAgente
 from app.config import carregar_config
 
 
 class _Ligar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     cliente_id: str
     perfil_id: str
 
 
 class _Desligar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     cliente_id: str
 
 

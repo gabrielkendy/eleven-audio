@@ -6,12 +6,14 @@ Audio sempre em arquivo. Nunca no banco.
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import unicodedata
 import wave
 from datetime import datetime
 from pathlib import Path
+from typing import BinaryIO
 
 
 def sanitizar(valor: str, padrao: str = "sem-perfil") -> str:
@@ -87,12 +89,32 @@ def destino_livre(destino: Path) -> Path:
     raise RuntimeError(f"nao achei nome livre para {destino.name}")
 
 
-def gravar_bytes(destino: Path, dados: bytes) -> Path:
-    """Grava sem nunca apagar um audio anterior. Devolve o caminho REAL usado."""
-    destino = destino_livre(destino)
+def abrir_destino_exclusivo(destino: Path) -> tuple[Path, BinaryIO]:
+    """Reserva e abre um nome sem corrida, inclusive entre processos."""
+    destino = Path(destino)
     destino.parent.mkdir(parents=True, exist_ok=True)
-    destino.write_bytes(dados)
-    return destino
+    raiz, sufixo = destino.stem, destino.suffix
+    candidatos = (destino, *(destino.with_name(f"{raiz}-{n}{sufixo}") for n in range(2, 1000)))
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    for candidato in candidatos:
+        try:
+            descritor = os.open(candidato, flags, 0o600)
+        except FileExistsError:
+            continue
+        return candidato, os.fdopen(descritor, "wb")
+    raise RuntimeError(f"não achei nome livre para {destino.name}")
+
+
+def gravar_bytes(destino: Path, dados: bytes) -> Path:
+    """Grava sem nunca apagar áudio anterior, inclusive entre threads/processos."""
+    candidato, arquivo = abrir_destino_exclusivo(destino)
+    try:
+        with arquivo:
+            arquivo.write(dados)
+    except Exception:
+        candidato.unlink(missing_ok=True)
+        raise
+    return candidato
 
 
 def medir(caminho: Path) -> dict[str, float | int]:
